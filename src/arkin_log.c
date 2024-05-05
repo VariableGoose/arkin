@@ -3,22 +3,12 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 _arkin_log_state_t _al_state = {0};
 
-static char _msg[ARKIN_LOG_MAX_MESSAGE_LENGTH] = {0};
-static char _msg_color[ARKIN_LOG_MAX_MESSAGE_LENGTH] = {0};
-
-void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-
-    static char user_message[ARKIN_LOG_MAX_MESSAGE_LENGTH] = {0};
-    vsnprintf(user_message, ARKIN_LOG_MAX_MESSAGE_LENGTH, fmt, args);
-
-    va_end(args);
-
-    const char *level_string[AL_LOG_LEVEL_COUNT] = {
+static void al_log_stdout(al_log_event_t event) {
+    static const char *level_string[AL_LOG_LEVEL_COUNT] = {
         "FATAL",
         "ERROR",
         "WARN ",
@@ -27,8 +17,8 @@ void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt
         "TRACE",
     };
 
-    const char *level_string_color[AL_LOG_LEVEL_COUNT] = {
-        "\e[1;101m",
+    static const char *level_string_color[AL_LOG_LEVEL_COUNT] = {
+        "\e[0;0m\e[1;101m",
         "\e[1;91m",
         "\e[0;93m",
         "\e[0;92m",
@@ -36,33 +26,77 @@ void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt
         "\e[0;95m",
     };
 
-    i32_t ret = snprintf(_msg, ARKIN_LOG_MAX_MESSAGE_LENGTH, "%s %s:%d: %s\n", level_string[level], file, line, user_message);
-    // Idk why but this gets rid of some truncation warning.
-    (void) ret;
+    if (!_al_state.no_stdout_color) {
+        printf("\e[0;37m%.2u:%.2u:%.2u %s%s\e[0;37m %s:%d:\e[0;0m %s\n",
+                event.hour,
+                event.minute,
+                event.second,
+                level_string_color[event.level],
+                level_string[event.level],
+                event.file,
+                event.line,
+                event.message);
+    } else {
+        printf("%.2u:%.2u:%.2u %s %s:%d: %s\n",
+                event.hour,
+                event.minute,
+                event.second,
+                level_string[event.level],
+                event.file,
+                event.line,
+                event.message);
+    }
+}
 
-    ret = snprintf(_msg_color, ARKIN_LOG_MAX_MESSAGE_LENGTH, "%s%s\e[0;37m %s:%d:\e[0;0m %s\n", level_string_color[level], level_string[level], file, line, user_message);
+void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt, ...) {
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    al_log_event_t event = {
+        .message = {0},
+        .level = level,
+        .hour = tm->tm_hour,
+        .minute = tm->tm_min,
+        .second = tm->tm_sec,
+        .file = file,
+        .line = line,
+    };
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(event.message, arrlen(event.message), fmt, args);
+    va_end(args);
+
+    if (!_al_state.no_stdout) {
+        al_log_stdout(event);
+    }
 
     for (u32_t i = 0; i < _al_state.callback_count; i++) {
         if (level <= _al_state.callbacks[i].level) {
-            const char *msg = _al_state.callbacks[i].level ? _msg_color : _msg;
-            _al_state.callbacks[i].func(level, file, line, msg, _al_state.callbacks[i].userdata);
+            _al_state.callbacks[i].func(event, _al_state.callbacks[i].userdata);
         }
     }
 }
 
-void al_add_callback(al_callback_t callback, al_log_level_t level, b8_t color, void *userdata) {
+void al_add_callback(al_callback_t callback, al_log_level_t level, void *userdata) {
     _al_state.callbacks[_al_state.callback_count].func = callback;
     _al_state.callbacks[_al_state.callback_count].level = level;
-    _al_state.callbacks[_al_state.callback_count].color = color;
     _al_state.callbacks[_al_state.callback_count].userdata = userdata;
     _al_state.callback_count++;
 }
 
-static void _al_file_callback(al_log_level_t level, const char *file, u32_t line, const char *msg, void *userdata) {
+static void _al_file_callback(al_log_event_t event, void *userdata) {
     FILE *fp = userdata;
-    fwrite(msg, strlen(msg), 1, fp);
+    fprintf(fp, "%s\n", event.message);
 }
 
-void al_add_fp(al_log_level_t level, b8_t color, FILE *fp) {
-    al_add_callback(_al_file_callback, level, color, fp);
+void al_add_fp(al_log_level_t level, FILE *fp) {
+    al_add_callback(_al_file_callback, level, fp);
+}
+
+void al_set_no_stdout(b8_t value) {
+    _al_state.no_stdout = value;
+}
+
+void al_set_no_stdout_color(b8_t value) {
+    _al_state.no_stdout_color = value;
 }

@@ -31,9 +31,22 @@ typedef enum {
     AL_LOG_LEVEL_COUNT,
 } al_log_level_t;
 
-typedef void (*al_callback_t)(al_log_level_t level, const char *file, u32_t line, const char *msg, void *userdata);
-ARKIN_API void al_add_callback(al_callback_t callback, al_log_level_t level, b8_t color, void *userdata);
-ARKIN_API void al_add_fp(al_log_level_t level, b8_t color, FILE *fp);
+typedef struct al_log_event_t al_log_event_t;
+struct al_log_event_t {
+    char message[ARKIN_LOG_MAX_MESSAGE_LENGTH];
+    al_log_level_t level;
+    u8_t hour;
+    u8_t minute;
+    u8_t second;
+    const char *file;
+    u32_t line;
+};
+
+typedef void (*al_callback_t)(al_log_event_t event, void *userdata);
+ARKIN_API void al_add_callback(al_callback_t callback, al_log_level_t level, void *userdata);
+ARKIN_API void al_add_fp(al_log_level_t level, FILE *fp);
+ARKIN_API void al_set_no_stdout(b8_t value);
+ARKIN_API void al_set_no_stdout_color(b8_t value);
 
 ARKIN_API void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt, ...);
 
@@ -42,10 +55,11 @@ struct _arkin_log_state_t {
     struct {
         al_callback_t func;
         al_log_level_t level;
-        b8_t color;
         void *userdata;
     } callbacks[ARKIN_LOG_MAX_CALLBACK_COUNT];
     u32_t callback_count;
+    b8_t no_stdout;
+    b8_t no_stdout_color;
 };
 extern _arkin_log_state_t _al_state;
 
