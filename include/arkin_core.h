@@ -52,6 +52,11 @@ typedef signed int       i32_t;
 // Signed 64-bit integer.
 typedef signed long long i64_t;
 
+// 32-bit floating point number.
+typedef float  f32_t;
+// 64-bit floating point number.
+typedef double f64_t;
+
 // 8-bit boolean.
 typedef u8_t b8_t;
 // 32-bit boolean.
