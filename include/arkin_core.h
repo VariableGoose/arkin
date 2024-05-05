@@ -82,9 +82,9 @@ typedef u8_t b32_t;
 #define offsetof(T, M) ((u64_t) (void *) &((T *)->m))
 #endif
 
-#define AC_MALLOC(SIZE) _ac->malloc(SIZE, __FILE__, __LINE__)
-#define AC_REALLOC(PTR, SIZE) _ac->realloc(PTR, SIZE, __FILE__, __LINE__)
-#define AC_FREE(PTR) _ac->free(PTR, __FILE__, __LINE__)
+#define AC_MALLOC(SIZE) _ac.malloc(SIZE, __FILE__, __LINE__)
+#define AC_REALLOC(PTR, SIZE) _ac.realloc(PTR, SIZE, __FILE__, __LINE__)
+#define AC_FREE(PTR) _ac.free(PTR, __FILE__, __LINE__)
 
 typedef struct arkin_core_desc_t arkin_core_desc_t;
 struct arkin_core_desc_t {
