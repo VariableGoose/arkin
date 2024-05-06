@@ -67,7 +67,7 @@ typedef u8_t b32_t;
 #endif
 
 #ifndef false
-#define false 1
+#define false 0
 #endif
 
 #ifndef NULL
