@@ -79,7 +79,7 @@ typedef u8_t b32_t;
 #endif
 
 #ifndef offsetof
-#define offsetof(T, M) ((u64_t) (void *) &((T *)->M))
+#define offsetof(T, M) ((u64_t) (void *) &((T *) NULL)->M)
 #endif
 
 #define AC_MALLOC(SIZE) _ac.malloc(SIZE, __FILE__, __LINE__)
