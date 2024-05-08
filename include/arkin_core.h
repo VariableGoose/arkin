@@ -60,7 +60,7 @@ typedef double f64_t;
 // 8-bit boolean.
 typedef u8_t b8_t;
 // 32-bit boolean.
-typedef u8_t b32_t;
+typedef u32_t b32_t;
 
 #ifndef true
 #define true 1
