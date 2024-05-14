@@ -5,9 +5,9 @@
 #include <string.h>
 #include <time.h>
 
-_arkin_log_state_t _al_state = {0};
+_ArkinLogState _al_state = {0};
 
-static void al_log_stdout(al_log_event_t event) {
+static void al_log_stdout(AlLogEvent event) {
     static const char *level_string[AL_LOG_LEVEL_COUNT] = {
         "FATAL",
         "ERROR",
@@ -48,10 +48,10 @@ static void al_log_stdout(al_log_event_t event) {
     }
 }
 
-void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt, ...) {
+void _al_log(AlLogLevel level, const char *file, U32 line, const char *fmt, ...) {
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
-    al_log_event_t event = {
+    AlLogEvent event = {
         .message = {0},
         .level = level,
         .hour = tm->tm_hour,
@@ -70,33 +70,33 @@ void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt
         al_log_stdout(event);
     }
 
-    for (u32_t i = 0; i < _al_state.callback_count; i++) {
+    for (U32 i = 0; i < _al_state.callback_count; i++) {
         if (level <= _al_state.callbacks[i].level) {
             _al_state.callbacks[i].func(event, _al_state.callbacks[i].userdata);
         }
     }
 }
 
-void al_add_callback(al_callback_t callback, al_log_level_t level, void *userdata) {
+void al_add_callback(AlCallback callback, AlLogLevel level, void *userdata) {
     _al_state.callbacks[_al_state.callback_count].func = callback;
     _al_state.callbacks[_al_state.callback_count].level = level;
     _al_state.callbacks[_al_state.callback_count].userdata = userdata;
     _al_state.callback_count++;
 }
 
-static void _al_file_callback(al_log_event_t event, void *userdata) {
+static void _al_file_callback(AlLogEvent event, void *userdata) {
     FILE *fp = userdata;
     fprintf(fp, "%s\n", event.message);
 }
 
-void al_add_fp(al_log_level_t level, FILE *fp) {
+void al_add_fp(AlLogLevel level, FILE *fp) {
     al_add_callback(_al_file_callback, level, fp);
 }
 
-void al_set_no_stdout(b8_t value) {
+void al_set_no_stdout(B8 value) {
     _al_state.no_stdout = value;
 }
 
-void al_set_no_stdout_color(b8_t value) {
+void al_set_no_stdout_color(B8 value) {
     _al_state.no_stdout_color = value;
 }

@@ -2,22 +2,22 @@
 #include "arkin_log.h"
 #include "arkin_test.h"
 
-at_case_result_t test_func(void) {
+AtCaseResult test_func(void) {
     AT_ASSERT_MSG(true, "hehe");
     AT_ASSERT(false);
 
     AT_SUCCESS();
 }
 
-i32_t main(void) {
-    arkin_init(&(arkin_core_desc_t) {0});
+I32 main(void) {
+    arkin_init(&(ArkinCoreDesc) {0});
 
-    at_state_t test_state = at_begin();
+    AtState test_state = at_begin();
     AT_RUN_TEST(&test_state, test_func);
 
-    at_result_t result = at_end(test_state);
+    AtResult result = at_end(test_state);
 
-    for (const at_case_t *c = result.cases; c != NULL; c = c->next) {
+    for (const AtCase *c = result.cases; c != NULL; c = c->next) {
         if (c->result.passed) {
             al_info("%s: passed", c->name);
         } else {

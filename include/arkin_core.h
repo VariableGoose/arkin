@@ -35,32 +35,32 @@
 #endif
 
 // Unsigned 8-bit integer.
-typedef unsigned char      u8_t;
+typedef unsigned char      U8;
 // Unsigned 16-bit integer.
-typedef unsigned short     u16_t;
+typedef unsigned short     U16;
 // Unsigned 32-bit integer.
-typedef unsigned int       u32_t;
+typedef unsigned int       U32;
 // Unsigned 64-bit integer.
-typedef unsigned long long u64_t;
+typedef unsigned long long U64;
 
 // Signed 8-bit integer.
-typedef signed char      i8_t;
+typedef signed char      I8;
 // Signed 16-bit integer.
-typedef signed short     i16_t;
+typedef signed short     I16;
 // Signed 32-bit integer.
-typedef signed int       i32_t;
+typedef signed int       I32;
 // Signed 64-bit integer.
-typedef signed long long i64_t;
+typedef signed long long I64;
 
 // 32-bit floating point number.
-typedef float  f32_t;
+typedef float  F32;
 // 64-bit floating point number.
-typedef double f64_t;
+typedef double F64;
 
 // 8-bit boolean.
-typedef u8_t b8_t;
+typedef U8 B8;
 // 32-bit boolean.
-typedef u8_t b32_t;
+typedef U8 B32;
 
 #ifndef true
 #define true 1
@@ -86,22 +86,22 @@ typedef u8_t b32_t;
 #define AC_REALLOC(PTR, SIZE) _ac.realloc(PTR, SIZE, __FILE__, __LINE__)
 #define AC_FREE(PTR) _ac.free(PTR, __FILE__, __LINE__)
 
-typedef struct arkin_core_desc_t arkin_core_desc_t;
-struct arkin_core_desc_t {
-    void *(*malloc)(u64_t size, const char *file, u32_t line);
-    void *(*realloc)(void *ptr, u64_t size, const char *file, u32_t line);
-    void (*free)(void *ptr, const char *file, u32_t line);
+typedef struct ArkinCoreDesc ArkinCoreDesc;
+struct ArkinCoreDesc {
+    void *(*malloc)(U64 size, const char *file, U32 line);
+    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
+    void (*free)(void *ptr, const char *file, U32 line);
 };
 
-ARKIN_API void arkin_init(const arkin_core_desc_t *desc);
+ARKIN_API void arkin_init(const ArkinCoreDesc *desc);
 ARKIN_API void arkin_terminate(void);
 
-typedef struct _arkin_core_state_t _arkin_core_state_t;
-struct _arkin_core_state_t {
-    void *(*malloc)(u64_t size, const char *file, u32_t line);
-    void *(*realloc)(void *ptr, u64_t size, const char *file, u32_t line);
-    void (*free)(void *ptr, const char *file, u32_t line);
+typedef struct _ArkinCoreState _ArkinCoreState;
+struct _ArkinCoreState {
+    void *(*malloc)(U64 size, const char *file, U32 line);
+    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
+    void (*free)(void *ptr, const char *file, U32 line);
 };
-extern _arkin_core_state_t _ac;
+extern _ArkinCoreState _ac;
 
 #endif

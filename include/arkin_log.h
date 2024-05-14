@@ -21,20 +21,20 @@ typedef enum {
     AL_LOG_LEVEL_TRACE,
 
     AL_LOG_LEVEL_COUNT,
-} al_log_level_t;
+} AlLogLevel;
 
-typedef struct al_log_event_t al_log_event_t;
-struct al_log_event_t {
+typedef struct AlLogEvent AlLogEvent;
+struct AlLogEvent {
     char message[ARKIN_LOG_MAX_MESSAGE_LENGTH];
-    al_log_level_t level;
-    u8_t hour;
-    u8_t minute;
-    u8_t second;
+    AlLogLevel level;
+    U8 hour;
+    U8 minute;
+    U8 second;
     const char *file;
-    u32_t line;
+    U32 line;
 };
 
-typedef void (*al_callback_t)(al_log_event_t event, void *userdata);
+typedef void (*AlCallback)(AlLogEvent event, void *userdata);
 
 #define al_fatal(msg, ...) _al_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 #define al_fatal(msg, ...) _al_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
@@ -44,24 +44,24 @@ typedef void (*al_callback_t)(al_log_event_t event, void *userdata);
 #define al_debug(msg, ...) _al_log(AL_LOG_LEVEL_DEBUG, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 #define al_trace(msg, ...) _al_log(AL_LOG_LEVEL_TRACE, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 
-ARKIN_API void al_add_callback(al_callback_t callback, al_log_level_t level, void *userdata);
-ARKIN_API void al_add_fp(al_log_level_t level, FILE *fp);
-ARKIN_API void al_set_no_stdout(b8_t value);
-ARKIN_API void al_set_no_stdout_color(b8_t value);
+ARKIN_API void al_add_callback(AlCallback callback, AlLogLevel level, void *userdata);
+ARKIN_API void al_add_fp(AlLogLevel level, FILE *fp);
+ARKIN_API void al_set_no_stdout(B8 value);
+ARKIN_API void al_set_no_stdout_color(B8 value);
 
-ARKIN_API void _al_log(al_log_level_t level, const char *file, u32_t line, const char *fmt, ...);
+ARKIN_API void _al_log(AlLogLevel level, const char *file, U32 line, const char *fmt, ...);
 
-typedef struct _arkin_log_state_t _arkin_log_state_t;
-struct _arkin_log_state_t {
+typedef struct _ArkinLogState _ArkinLogState;
+struct _ArkinLogState {
     struct {
-        al_callback_t func;
-        al_log_level_t level;
+        AlCallback func;
+        AlLogLevel level;
         void *userdata;
     } callbacks[ARKIN_LOG_MAX_CALLBACK_COUNT];
-    u32_t callback_count;
-    b8_t no_stdout;
-    b8_t no_stdout_color;
+    U32 callback_count;
+    B8 no_stdout;
+    B8 no_stdout_color;
 };
-extern _arkin_log_state_t _al_state;
+extern _ArkinLogState _al_state;
 
 #endif
