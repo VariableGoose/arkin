@@ -60,7 +60,7 @@ typedef double F64;
 // 8-bit boolean.
 typedef U8 B8;
 // 32-bit boolean.
-typedef U8 B32;
+typedef U32 B32;
 
 #ifndef true
 #define true 1
@@ -79,7 +79,7 @@ typedef U8 B32;
 #endif
 
 #ifndef offsetof
-#define offsetof(T, M) ((u64_t) (void *) &((T *) NULL)->M)
+#define offsetof(T, M) ((U64) (void *) &((T *) NULL)->M)
 #endif
 
 #define AC_MALLOC(SIZE) _ac.malloc(SIZE, __FILE__, __LINE__)

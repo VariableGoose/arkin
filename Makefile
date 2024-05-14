@@ -4,8 +4,7 @@ IFLAGS := -Iinclude
 LFLAGS := -lm
 DFLAGS :=
 
-SRC := $(wildcard src/*.c)
+SRC := $(wildcard src/*.c) $(wildcard tests/*.c)
 
-build:
-	@mkdir -p bin
-	$(CC) $(CFLAGS) $(SRC) -o bin/a.out $(IFLAGS) $(LFLAGS)
+test:
+	$(CC) $(CFLAGS) $(SRC) -o tests/test $(IFLAGS) $(LFLAGS)

@@ -47,8 +47,8 @@ ARKIN_API void at_result_free(AtResult *result);
 #define AT_RUN_TEST(STATE, TEST) _at_run_test(STATE, TEST, #TEST)
 
 #define AT_SUCCESS() return (AtCaseResult) { .passed = true, .msg = NULL, .file = __FILE__, .line = __LINE__ }
-#define AT_ASSERT_MSG(VALUE, MSG) if (!VALUE) { return (AtCaseResult) { .passed = VALUE, .msg = MSG, .file = __FILE__, .line = __LINE__ }; }
-#define AT_ASSERT(VALUE) AT_ASSERT_MSG(VALUE, NULL)
+#define AT_ASSERT_MSG(VALUE, MSG) if (!(VALUE)) { return (AtCaseResult) { .passed = VALUE, .msg = MSG, .file = __FILE__, .line = __LINE__ }; }
+#define AT_ASSERT(VALUE) AT_ASSERT_MSG((VALUE), NULL)
 
 ARKIN_API void _at_run_test(AtState *state, AtTestFunc func, const char *name);
 
