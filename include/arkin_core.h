@@ -104,4 +104,19 @@ struct _ArkinCoreState {
 };
 extern _ArkinCoreState _ac;
 
+//
+// Platform
+//
+
+ARKIN_API F64 ar_os_get_time(void);
+ARKIN_API U32 ar_os_page_size(void);
+
+// ARKIN_API void *ar_os_mem_reserve(U64 size);
+// ARKIN_API void ar_os_mem_commit();
+// ARKIN_API void ar_os_mem_decommit();
+// ARKIN_API void ar_os_mem_release();
+
+ARKIN_API void _ar_os_init(void);
+ARKIN_API void _ar_os_terminate(void);
+
 #endif

@@ -1,3 +1,5 @@
+#include "arkin_core.h"
+#include "arkin_test.h"
 #include "test.h"
 
 typedef struct Foobar Foobar;
@@ -53,6 +55,18 @@ AtCaseResult test_sizes(void) {
     AT_SUCCESS();
 }
 
+AtCaseResult test_page_size(void) {
+#ifdef ARKIN_OS_LINUX
+    #include <unistd.h>
+
+    AT_ASSERT(ar_os_page_size() == getpagesize());
+
+    AT_SUCCESS();
+#endif
+
+    AT_ASSERT_MSG(false, "OS not supported.");
+}
+
 AtResult test_core(void) {
     AtState state = at_begin();
 
@@ -60,6 +74,7 @@ AtResult test_core(void) {
     AT_RUN_TEST(&state, test_arrlen);
     AT_RUN_TEST(&state, test_constants);
     AT_RUN_TEST(&state, test_sizes);
+    AT_RUN_TEST(&state, test_page_size);
 
     return at_end(state);
 }
