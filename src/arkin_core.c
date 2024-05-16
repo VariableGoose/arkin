@@ -42,12 +42,20 @@ void arkin_terminate(void) {
 
 #include <unistd.h>
 #include <time.h>
+#include <sys/mman.h>
 
 typedef struct _ArOsState _ArOsState;
 struct _ArOsState {
     B8 inited;
     U32 page_size;
     F64 start_time;
+};
+
+typedef struct _ArOsAllocInfo _ArOsAllocInfo;
+struct _ArOsAllocInfo {
+    U64 size;
+    U64 requested_commited;
+    U64 commited;
 };
 
 static _ArOsState _ar_os_state = {0};
@@ -80,6 +88,59 @@ F64 ar_os_get_time(void) {
 
 U32 ar_os_page_size(void) {
     return _ar_os_state.page_size;
+}
+
+static U64 align_to_page_size(U64 value) {
+    U32 page_size = ar_os_page_size();
+    return value + (page_size - value) % page_size;
+}
+
+void *ar_os_mem_reserve(U64 size) {
+    U32 page_size = ar_os_page_size();
+    size = align_to_page_size(size + sizeof(_ArOsAllocInfo));
+
+    _ArOsAllocInfo *info = mmap(NULL, size + sizeof(_ArOsAllocInfo), PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    mprotect(info, page_size, PROT_READ | PROT_WRITE);
+    info->size = size;
+    info->commited = page_size;
+    info->requested_commited = sizeof(_ArOsAllocInfo);
+
+    return &info[1];
+}
+
+void ar_os_mem_commit(void *ptr, U64 size) {
+    _ArOsAllocInfo *info = &((_ArOsAllocInfo *) ptr)[-1];
+    info->requested_commited += size;
+    U64 requested = align_to_page_size(info->requested_commited);
+    if (requested > info->commited) {
+        info->commited = requested;
+        mprotect(info, info->commited, PROT_READ | PROT_WRITE);
+    }
+}
+
+void ar_os_mem_decommit(void *ptr, U64 size) {
+    _ArOsAllocInfo *info = &((_ArOsAllocInfo *) ptr)[-1];
+
+    if (size > info->requested_commited) {
+        size = info->requested_commited;
+    }
+
+    info->requested_commited -= size;
+    if (info->requested_commited < sizeof(_ArOsAllocInfo)) {
+        info->requested_commited = sizeof(_ArOsAllocInfo);
+    }
+
+    U64 requested = align_to_page_size(info->requested_commited);
+    if (requested < info->commited) {
+        mprotect((U8 *) ptr + requested, info->commited - requested, PROT_NONE);
+        info->commited = requested;
+    }
+}
+
+void ar_os_mem_release(void *ptr) {
+    _ArOsAllocInfo *info = &((_ArOsAllocInfo *) ptr)[-1];
+
+    munmap(info, info->size);
 }
 
 #endif

@@ -111,10 +111,29 @@ extern _ArkinCoreState _ac;
 ARKIN_API F64 ar_os_get_time(void);
 ARKIN_API U32 ar_os_page_size(void);
 
-// ARKIN_API void *ar_os_mem_reserve(U64 size);
-// ARKIN_API void ar_os_mem_commit();
-// ARKIN_API void ar_os_mem_decommit();
-// ARKIN_API void ar_os_mem_release();
+// Reserves 'size', aligned upwards to the next page boundy, of memory
+// addresses.
+//
+// It adds a size of 3 U64 to the size for the allocation header
+// used internally.
+ARKIN_API void *ar_os_mem_reserve(U64 size);
+
+// Grows readble and writable size of 'ptr' upwards.
+//
+// Doing pointer arithmatic on 'ptr' is strongly discouraged due to internal
+// arithmatic to get allocation info.
+ARKIN_API void ar_os_mem_commit(void *ptr, U64 size);
+
+// Shrinks readable and writable chunk of 'ptr' downwards.
+// There will always be a (pagesize - sizeof(U64)*3) chunk of readable and
+// writable memory available until it is released.
+//
+// Doing pointer arithmatic on 'ptr' is strongly discouraged due to internal
+// arithmatic to get allocation info.
+ARKIN_API void ar_os_mem_decommit(void *ptr, U64 size);
+
+// Releases the all the reserved address space back to the OS.
+ARKIN_API void ar_os_mem_release(void *ptr);
 
 ARKIN_API void _ar_os_init(void);
 ARKIN_API void _ar_os_terminate(void);
