@@ -106,14 +106,6 @@ struct ArkinCoreDesc {
 ARKIN_API void arkin_init(const ArkinCoreDesc *desc);
 ARKIN_API void arkin_terminate(void);
 
-typedef struct _ArkinCoreState _ArkinCoreState;
-struct _ArkinCoreState {
-    void *(*malloc)(U64 size, const char *file, U32 line);
-    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
-    void (*free)(void *ptr, const char *file, U32 line);
-};
-extern _ArkinCoreState _ac;
-
 //
 // Arena
 //
@@ -143,10 +135,18 @@ struct ArTemp {
 ARKIN_API ArTemp ar_temp_begin(ArArena *arena);
 ARKIN_API void ar_temp_end(ArTemp *temp);
 
-// Currently only works on the main thread.
-// TODO: Make multi-thread friendly.
 ARKIN_API ArTemp ar_scratch_get(ArArena **conflicting, U32 count);
 ARKIN_INLINE void ar_scratch_release(ArTemp *scratch) { ar_temp_end(scratch); }
+
+//
+// Thread context
+//
+
+typedef struct ArThreadCtx ArThreadCtx;
+
+ARKIN_API ArThreadCtx *ar_thread_ctx_create(void);
+ARKIN_API void ar_thread_ctx_destroy(ArThreadCtx **ctx);
+ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
 
 //
 // Platform
@@ -179,7 +179,36 @@ ARKIN_API void ar_os_mem_decommit(void *ptr, U64 size);
 // Releases the all the reserved address space back to the OS.
 ARKIN_API void ar_os_mem_release(void *ptr);
 
+//
+// Threads
+//
+
+typedef struct ArThread ArThread;
+struct ArThread {
+    U64 handle;
+};
+
+typedef void (*ArThreadFunc)(void *args);
+
+ARKIN_API ArThread ar_thread_start(ArThreadFunc func, void *args);
+// Starts a thread without creating a thread context.
+// Without a thread context scratch arenas won't be available.
+ARKIN_API ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args);
+ARKIN_API ArThread ar_thread_current(void);
+ARKIN_API void ar_thread_join(ArThread thread);
+ARKIN_API void ar_thread_detatch(ArThread thread);
+
 ARKIN_API void _ar_os_init(void);
 ARKIN_API void _ar_os_terminate(void);
+
+typedef struct _ArkinCoreState _ArkinCoreState;
+struct _ArkinCoreState {
+    void *(*malloc)(U64 size, const char *file, U32 line);
+    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
+    void (*free)(void *ptr, const char *file, U32 line);
+
+    ArThreadCtx *thread_ctx;
+};
+extern _ArkinCoreState _ac;
 
 #endif

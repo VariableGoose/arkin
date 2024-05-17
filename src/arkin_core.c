@@ -28,9 +28,15 @@ void arkin_init(const ArkinCoreDesc *desc) {
     _ac.malloc  = desc->malloc  == NULL ? _ac_default_malloc  : desc->malloc;
     _ac.realloc = desc->realloc == NULL ? _ac_default_realloc : desc->realloc;
     _ac.free    = desc->free    == NULL ? _ac_default_free    : desc->free;
+
+    _ac.thread_ctx = ar_thread_ctx_create();
+    ar_thread_ctx_set(_ac.thread_ctx);
 }
 
 void arkin_terminate(void) {
+    ar_thread_ctx_set(NULL);
+    ar_thread_ctx_destroy(&_ac.thread_ctx);
+
     _ar_os_terminate();
 }
 
@@ -124,20 +130,68 @@ void ar_temp_end(ArTemp *temp) {
     *(U32 *) &temp->pos = 0;
 }
 
-ARKIN_THREAD ArArena *scratch_arenas[2] = {0};
+//
+// Thread context
+//
+
+#define SCRATCH_ARENA_COUNT 2
+
+struct ArThreadCtx {
+    ArArena *scratch_arenas[SCRATCH_ARENA_COUNT];
+};
+
+ARKIN_THREAD ArThreadCtx *_ar_thread_ctx_curr = NULL;
+
+ArThreadCtx *ar_thread_ctx_create(void) {
+    ArArena *arenas[SCRATCH_ARENA_COUNT] = {0};
+
+    for (U32 i = 0; i < arrlen(arenas); i++) {
+        arenas[i] = ar_arena_create_default();
+    }
+
+    ArThreadCtx *ctx = ar_arena_push_type(arenas[0], ArThreadCtx);
+    for (U32 i = 0; i < arrlen(arenas); i++) {
+        ctx->scratch_arenas[i] = arenas[i];
+    }
+
+    return ctx;
+}
+
+void ar_thread_ctx_destroy(ArThreadCtx **ctx) {
+    // Copy arena pointers because ctx lives on the first one so if we free the
+    // first and then try to access the second one the program will segfault.
+    ArArena *arenas[SCRATCH_ARENA_COUNT] = {0};
+    for (U32 i = 0; i < arrlen((*ctx)->scratch_arenas); i++) {
+        arenas[i] = (*ctx)->scratch_arenas[i];
+    }
+
+    for (U32 i = 0; i < arrlen(arenas); i++) {
+        ar_arena_destroy(&arenas[i]);
+    }
+
+    *ctx = NULL;
+}
+
+void ar_thread_ctx_set(ArThreadCtx *ctx) {
+    _ar_thread_ctx_curr = ctx;
+}
 
 static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 count) {
+    if (_ar_thread_ctx_curr == NULL) {
+        return NULL;
+    }
+
     if (count == 0) {
-        return scratch_arenas[0];
+        return _ar_thread_ctx_curr->scratch_arenas[0];
     }
 
     for (U8 i = 0; i < count; i++) {
-        for (U8 j = 0; j < arrlen(scratch_arenas); j++) {
-            if (scratch_arenas[j] == conflicting[i]) {
+        for (U8 j = 0; j < arrlen(_ar_thread_ctx_curr->scratch_arenas); j++) {
+            if (_ar_thread_ctx_curr->scratch_arenas[j] == conflicting[i]) {
                 continue;
             }
 
-            return scratch_arenas[j];
+            return _ar_thread_ctx_curr->scratch_arenas[j];
         }
     }
 
@@ -146,6 +200,9 @@ static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 cou
 
 ArTemp ar_scratch_get(ArArena **conflicting, U32 count) {
     ArArena *scratch = get_non_conflicting_scratch_arena(conflicting, count);
+    if (scratch == NULL) {
+        return (ArTemp) {0};
+    }
     return ar_temp_begin(scratch);
 }
 
@@ -158,6 +215,7 @@ ArTemp ar_scratch_get(ArArena **conflicting, U32 count) {
 #include <unistd.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 typedef struct _ArOsState _ArOsState;
 struct _ArOsState {
@@ -188,18 +246,10 @@ void _ar_os_init(void) {
         .page_size = sysconf(_SC_PAGE_SIZE),
         .start_time = ts.tv_sec + ts.tv_nsec * 1e-9,
     };
-
-    for (U32 i = 0; i < arrlen(scratch_arenas); i++) {
-        scratch_arenas[i] = ar_arena_create_default();
-    }
 }
 
 void _ar_os_terminate(void) {
     _ar_os_state.inited = false;
-
-    for (U32 i = 0; i < arrlen(scratch_arenas); i++) {
-        ar_arena_destroy(&scratch_arenas[i]);
-    }
 }
 
 F64 ar_os_get_time(void) {
@@ -259,6 +309,81 @@ void ar_os_mem_release(void *ptr) {
     _ArOsAllocInfo *info = &((_ArOsAllocInfo *) ptr)[-1];
 
     munmap(info, info->size);
+}
+
+typedef struct _ArThreadArgs _ArThreadArgs;
+struct _ArThreadArgs {
+    ArThreadFunc func;
+    void *args;
+};
+
+static void *_ar_os_thread_entry(void *args) {
+    _ArThreadArgs *_args = args;
+
+    ArThreadCtx *thread_ctx = ar_thread_ctx_create();
+    ar_thread_ctx_set(thread_ctx);
+    _args->func(_args->args);
+    ar_thread_ctx_destroy(&thread_ctx);
+
+    AC_FREE(_args);
+
+    return NULL;
+}
+
+static void *_ar_os_thread_entry_no_ctx(void *args) {
+    _ArThreadArgs *_args = args;
+
+    _args->func(_args->args);
+
+    AC_FREE(_args);
+
+    return NULL;
+}
+
+ArThread ar_thread_start(ArThreadFunc func, void *args) {
+    ArThread thread = {0};
+
+    _ArThreadArgs *targs = AC_MALLOC(sizeof(_ArThreadArgs));
+    *targs = (_ArThreadArgs) {
+        .func = func,
+        .args = args,
+    };
+
+    pthread_t handle;
+    pthread_create(&handle, NULL, _ar_os_thread_entry, targs);
+    thread.handle = handle;
+
+    return thread;
+}
+
+ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args) {
+    ArThread thread = {0};
+
+    _ArThreadArgs *targs = AC_MALLOC(sizeof(_ArThreadArgs));
+    *targs = (_ArThreadArgs) {
+        .func = func,
+        .args = args,
+    };
+
+    pthread_t handle;
+    pthread_create(&handle, NULL, _ar_os_thread_entry_no_ctx, targs);
+    thread.handle = handle;
+
+    return thread;
+}
+
+ArThread ar_thread_current(void) {
+    return (ArThread) {
+        .handle = pthread_self(),
+    };
+}
+
+void ar_thread_join(ArThread thread) {
+    pthread_join(thread.handle, NULL);
+}
+
+void ar_thread_detatch(ArThread thread) {
+    pthread_detach(thread.handle);
 }
 
 #endif
