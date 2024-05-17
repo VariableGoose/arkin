@@ -35,6 +35,76 @@ void arkin_terminate(void) {
 }
 
 //
+// Arena
+//
+
+static U64 align_to_page_size(U64 value) {
+    U32 page_size = ar_os_page_size();
+    return value + (page_size - value) % page_size;
+}
+
+struct ArArena {
+    U64 capacity;
+    U64 commited;
+    U64 used;
+    U8 *ptr;
+};
+
+ArArena *ar_arena_create(U64 capacity) {
+    ArArena *arena = ar_os_mem_reserve(capacity + sizeof(ArArena));
+    ar_os_mem_commit(arena, ar_os_page_size() + sizeof(ArArena));
+    *arena = (ArArena) {
+        .capacity = capacity,
+        .commited = ar_os_page_size(),
+        .used = 0,
+        .ptr = (U8 *) &arena[1],
+    };
+
+    return arena;
+}
+
+void ar_arena_destroy(ArArena **arena) {
+    ar_os_mem_release(*arena);
+    *arena = NULL;
+}
+
+void *ar_arena_push(ArArena *arena, U64 size) {
+    void *result = arena->ptr + arena->used;
+
+    arena->used += size;
+
+    U64 aligned = align_to_page_size(arena->used);
+    if (aligned > arena->commited) {
+        ar_os_mem_commit(arena, aligned);
+        arena->commited = aligned;
+    }
+
+    return result;
+}
+
+void ar_arena_pop(ArArena *arena, U64 size) {
+    if (size > arena->used) {
+        size = arena->used;
+    }
+
+    arena->used -= size;
+
+    U64 aligned = align_to_page_size(arena->used);
+    if (aligned < arena->commited && aligned != 0) {
+        ar_os_mem_decommit(arena, arena->commited - aligned);
+        arena->commited = aligned;
+    }
+}
+
+void ar_arena_reset(ArArena *arena) {
+    ar_arena_pop(arena, arena->used);
+}
+
+U64 ar_arena_used(const ArArena *arena) {
+    return arena->used;
+}
+
+//
 // Platform
 //
 
@@ -88,11 +158,6 @@ F64 ar_os_get_time(void) {
 
 U32 ar_os_page_size(void) {
     return _ar_os_state.page_size;
-}
-
-static U64 align_to_page_size(U64 value) {
-    U32 page_size = ar_os_page_size();
-    return value + (page_size - value) % page_size;
 }
 
 void *ar_os_mem_reserve(U64 size) {

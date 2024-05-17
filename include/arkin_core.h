@@ -105,6 +105,23 @@ struct _ArkinCoreState {
 extern _ArkinCoreState _ac;
 
 //
+// Arena
+//
+
+typedef struct ArArena ArArena;
+
+ARKIN_API ArArena *ar_arena_create(U64 capacity);
+ARKIN_API void ar_arena_destroy(ArArena **arena);
+
+ARKIN_API void *ar_arena_push(ArArena *arena, U64 size);
+ARKIN_API void ar_arena_pop(ArArena *arena, U64 size);
+ARKIN_API void ar_arena_reset(ArArena *arena);
+
+ARKIN_API U64 ar_arena_used(const ArArena *arena);
+
+#define ar_arena_push_arr(arena, type, len) ar_arena_push((arena), sizeof(type) * len)
+
+//
 // Platform
 //
 
