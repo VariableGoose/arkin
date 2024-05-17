@@ -39,7 +39,7 @@ void arkin_terminate(void) {
 //
 
 static U64 align_to_page_size(U64 value) {
-    U32 page_size = ar_os_page_size();
+    U64 page_size = ar_os_page_size();
     return value + (page_size - value) % page_size;
 }
 
@@ -61,6 +61,10 @@ ArArena *ar_arena_create(U64 capacity) {
     };
 
     return arena;
+}
+
+ArArena *ar_arena_create_default(void) {
+    return ar_arena_create(4 * 1llu << 30);
 }
 
 void ar_arena_destroy(ArArena **arena) {
@@ -120,6 +124,31 @@ void ar_temp_end(ArTemp *temp) {
     *(U32 *) &temp->pos = 0;
 }
 
+ARKIN_THREAD ArArena *scratch_arenas[2] = {0};
+
+static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 count) {
+    if (count == 0) {
+        return scratch_arenas[0];
+    }
+
+    for (U8 i = 0; i < count; i++) {
+        for (U8 j = 0; j < arrlen(scratch_arenas); j++) {
+            if (scratch_arenas[j] == conflicting[i]) {
+                continue;
+            }
+
+            return scratch_arenas[j];
+        }
+    }
+
+    return NULL;
+}
+
+ArTemp ar_scratch_get(ArArena **conflicting, U32 count) {
+    ArArena *scratch = get_non_conflicting_scratch_arena(conflicting, count);
+    return ar_temp_begin(scratch);
+}
+
 //
 // Platform
 //
@@ -159,10 +188,18 @@ void _ar_os_init(void) {
         .page_size = sysconf(_SC_PAGE_SIZE),
         .start_time = ts.tv_sec + ts.tv_nsec * 1e-9,
     };
+
+    for (U32 i = 0; i < arrlen(scratch_arenas); i++) {
+        scratch_arenas[i] = ar_arena_create_default();
+    }
 }
 
 void _ar_os_terminate(void) {
     _ar_os_state.inited = false;
+
+    for (U32 i = 0; i < arrlen(scratch_arenas); i++) {
+        ar_arena_destroy(&scratch_arenas[i]);
+    }
 }
 
 F64 ar_os_get_time(void) {

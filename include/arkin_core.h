@@ -34,6 +34,16 @@
     #define ARKIN_API extern
 #endif
 
+#define ARKIN_INLINE static inline
+
+#ifdef ARKIN_OS_LINUX
+#define ARKIN_THREAD __thread
+#endif
+
+#ifdef ARKIN_OS_WINDOWS
+#define ARKIN_THREAD __declspec(thread)
+#endif
+
 // Unsigned 8-bit integer.
 typedef unsigned char      U8;
 // Unsigned 16-bit integer.
@@ -111,6 +121,8 @@ extern _ArkinCoreState _ac;
 typedef struct ArArena ArArena;
 
 ARKIN_API ArArena *ar_arena_create(U64 capacity);
+// Uses a default capacity of 4 GiB. (4 * 1 << 30).
+ARKIN_API ArArena *ar_arena_create_default(void);
 ARKIN_API void ar_arena_destroy(ArArena **arena);
 
 ARKIN_API void *ar_arena_push(ArArena *arena, U64 size);
@@ -130,6 +142,11 @@ struct ArTemp {
 
 ARKIN_API ArTemp ar_temp_begin(ArArena *arena);
 ARKIN_API void ar_temp_end(ArTemp *temp);
+
+// Currently only works on the main thread.
+// TODO: Make multi-thread friendly.
+ARKIN_API ArTemp ar_scratch_get(ArArena **conflicting, U32 count);
+ARKIN_INLINE void ar_scratch_release(ArTemp *scratch) { ar_temp_end(scratch); }
 
 //
 // Platform
