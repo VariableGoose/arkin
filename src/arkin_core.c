@@ -46,7 +46,7 @@ static U64 align_to_page_size(U64 value) {
 struct ArArena {
     U64 capacity;
     U64 commited;
-    U64 used;
+    U64 position;
     U8 *ptr;
 };
 
@@ -56,7 +56,7 @@ ArArena *ar_arena_create(U64 capacity) {
     *arena = (ArArena) {
         .capacity = capacity,
         .commited = ar_os_page_size(),
-        .used = 0,
+        .position = 0,
         .ptr = (U8 *) &arena[1],
     };
 
@@ -69,11 +69,11 @@ void ar_arena_destroy(ArArena **arena) {
 }
 
 void *ar_arena_push(ArArena *arena, U64 size) {
-    void *result = arena->ptr + arena->used;
+    void *result = arena->ptr + arena->position;
 
-    arena->used += size;
+    arena->position += size;
 
-    U64 aligned = align_to_page_size(arena->used);
+    U64 aligned = align_to_page_size(arena->position);
     if (aligned > arena->commited) {
         ar_os_mem_commit(arena, aligned);
         arena->commited = aligned;
@@ -83,13 +83,13 @@ void *ar_arena_push(ArArena *arena, U64 size) {
 }
 
 void ar_arena_pop(ArArena *arena, U64 size) {
-    if (size > arena->used) {
-        size = arena->used;
+    if (size > arena->position) {
+        size = arena->position;
     }
 
-    arena->used -= size;
+    arena->position -= size;
 
-    U64 aligned = align_to_page_size(arena->used);
+    U64 aligned = align_to_page_size(arena->position);
     if (aligned < arena->commited && aligned != 0) {
         ar_os_mem_decommit(arena, arena->commited - aligned);
         arena->commited = aligned;
@@ -97,11 +97,27 @@ void ar_arena_pop(ArArena *arena, U64 size) {
 }
 
 void ar_arena_reset(ArArena *arena) {
-    ar_arena_pop(arena, arena->used);
+    ar_arena_pop(arena, arena->position);
 }
 
 U64 ar_arena_used(const ArArena *arena) {
-    return arena->used;
+    return arena->position;
+}
+
+ArTemp ar_temp_begin(ArArena *arena) {
+    return (ArTemp) {
+        .arena = arena,
+        .pos = arena->position,
+    };
+}
+
+void ar_temp_end(ArTemp *temp) {
+    U64 diff = temp->arena->position - temp->pos;
+    ar_arena_pop(temp->arena, diff);
+
+    // I'm sorry for this.
+    *(ArArena **) &temp->arena = NULL;
+    *(U32 *) &temp->pos = 0;
 }
 
 //

@@ -120,6 +120,16 @@ ARKIN_API void ar_arena_reset(ArArena *arena);
 ARKIN_API U64 ar_arena_used(const ArArena *arena);
 
 #define ar_arena_push_arr(arena, type, len) ar_arena_push((arena), sizeof(type) * len)
+#define ar_arena_push_type(arena, type) ar_arena_push((arena), sizeof(type))
+
+typedef struct ArTemp ArTemp;
+struct ArTemp {
+    ArArena *const arena;
+    const U32 pos;
+};
+
+ARKIN_API ArTemp ar_temp_begin(ArArena *arena);
+ARKIN_API void ar_temp_end(ArTemp *temp);
 
 //
 // Platform
