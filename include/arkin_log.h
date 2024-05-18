@@ -21,12 +21,12 @@ typedef enum {
     AL_LOG_LEVEL_TRACE,
 
     AL_LOG_LEVEL_COUNT,
-} AlLogLevel;
+} ArLogLevel;
 
-typedef struct AlLogEvent AlLogEvent;
-struct AlLogEvent {
+typedef struct ArLogEvent ArLogEvent;
+struct ArLogEvent {
     char message[ARKIN_LOG_MAX_MESSAGE_LENGTH];
-    AlLogLevel level;
+    ArLogLevel level;
     U8 hour;
     U8 minute;
     U8 second;
@@ -34,34 +34,34 @@ struct AlLogEvent {
     U32 line;
 };
 
-typedef void (*AlCallback)(AlLogEvent event, void *userdata);
+typedef void (*ArLogCallback)(ArLogEvent event, void *userdata);
 
-#define al_fatal(msg, ...) _al_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_fatal(msg, ...) _al_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_error(msg, ...) _al_log(AL_LOG_LEVEL_ERROR, __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_warn(msg, ...)  _al_log(AL_LOG_LEVEL_WARN,  __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_info(msg, ...)  _al_log(AL_LOG_LEVEL_INFO,  __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_debug(msg, ...) _al_log(AL_LOG_LEVEL_DEBUG, __FILE__, __LINE__, msg, ##__VA_ARGS__)
-#define al_trace(msg, ...) _al_log(AL_LOG_LEVEL_TRACE, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_fatal(msg, ...) _ar_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_fatal(msg, ...) _ar_log(AL_LOG_LEVEL_FATAL, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_error(msg, ...) _ar_log(AL_LOG_LEVEL_ERROR, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_warn(msg, ...)  _ar_log(AL_LOG_LEVEL_WARN,  __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_info(msg, ...)  _ar_log(AL_LOG_LEVEL_INFO,  __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_debug(msg, ...) _ar_log(AL_LOG_LEVEL_DEBUG, __FILE__, __LINE__, msg, ##__VA_ARGS__)
+#define ar_trace(msg, ...) _ar_log(AL_LOG_LEVEL_TRACE, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 
-ARKIN_API void al_add_callback(AlCallback callback, AlLogLevel level, void *userdata);
-ARKIN_API void al_add_fp(AlLogLevel level, FILE *fp);
-ARKIN_API void al_set_no_stdout(B8 value);
-ARKIN_API void al_set_no_stdout_color(B8 value);
+ARKIN_API void ar_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata);
+ARKIN_API void ar_add_fp(ArLogLevel level, FILE *fp);
+ARKIN_API void ar_set_no_stdout(B8 value);
+ARKIN_API void ar_set_no_stdout_color(B8 value);
 
-ARKIN_API void _al_log(AlLogLevel level, const char *file, U32 line, const char *fmt, ...);
+ARKIN_API void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...);
 
 typedef struct _ArkinLogState _ArkinLogState;
 struct _ArkinLogState {
     struct {
-        AlCallback func;
-        AlLogLevel level;
+        ArLogCallback func;
+        ArLogLevel level;
         void *userdata;
     } callbacks[ARKIN_LOG_MAX_CALLBACK_COUNT];
     U32 callback_count;
     B8 no_stdout;
     B8 no_stdout_color;
 };
-extern _ArkinLogState _al_state;
+extern _ArkinLogState _ar_state;
 
 #endif

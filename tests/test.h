@@ -3,6 +3,6 @@
 
 #include "arkin_test.h"
 
-extern AtResult test_core(void);
+extern ArResult test_core(void);
 
 #endif

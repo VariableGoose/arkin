@@ -84,17 +84,17 @@ typedef U32 B32;
 #define NULL ((void *) 0)
 #endif
 
-#ifndef arrlen
-#define arrlen(ARR) (sizeof(ARR) / sizeof(ARR[0]))
+#ifndef ar_arrlen
+#define ar_arrlen(ARR) (sizeof(ARR) / sizeof(ARR[0]))
 #endif
 
-#ifndef offsetof
-#define offsetof(T, M) ((U64) (void *) &((T *) NULL)->M)
+#ifndef ar_offsetof
+#define ar_offsetof(T, M) ((U64) (void *) &((T *) NULL)->M)
 #endif
 
-#define AC_MALLOC(SIZE) _ac.malloc(SIZE, __FILE__, __LINE__)
-#define AC_REALLOC(PTR, SIZE) _ac.realloc(PTR, SIZE, __FILE__, __LINE__)
-#define AC_FREE(PTR) _ac.free(PTR, __FILE__, __LINE__)
+#define AR_MALLOC(SIZE) _ar_core.malloc(SIZE, __FILE__, __LINE__)
+#define AR_REALLOC(PTR, SIZE) _ar_core.realloc(PTR, SIZE, __FILE__, __LINE__)
+#define AR_FREE(PTR) _ar_core.free(PTR, __FILE__, __LINE__)
 
 typedef struct ArkinCoreDesc ArkinCoreDesc;
 struct ArkinCoreDesc {
@@ -103,7 +103,14 @@ struct ArkinCoreDesc {
     void (*free)(void *ptr, const char *file, U32 line);
 };
 
+// Initializes global state needed by other arkin function calls.
+// This should be called at the start of a program by the main thread.
+// It will create a thread context making scratch arenas available to the main
+// thread.
 ARKIN_API void arkin_init(const ArkinCoreDesc *desc);
+
+// This should be called at the end of a program by the main thread as it will
+// destroy the thread context and clean up other resources.
 ARKIN_API void arkin_terminate(void);
 
 //
@@ -209,6 +216,6 @@ struct _ArkinCoreState {
 
     ArThreadCtx *thread_ctx;
 };
-extern _ArkinCoreState _ac;
+extern _ArkinCoreState _ar_core;
 
 #endif

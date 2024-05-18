@@ -5,9 +5,9 @@
 #include <string.h>
 #include <time.h>
 
-_ArkinLogState _al_state = {0};
+_ArkinLogState _ar_state = {0};
 
-static void al_log_stdout(AlLogEvent event) {
+static void ar_log_stdout(ArLogEvent event) {
     static const char *level_string[AL_LOG_LEVEL_COUNT] = {
         "FATAL",
         "ERROR",
@@ -26,7 +26,7 @@ static void al_log_stdout(AlLogEvent event) {
         "\e[0;95m",
     };
 
-    if (!_al_state.no_stdout_color) {
+    if (!_ar_state.no_stdout_color) {
         printf("\e[0;37m%.2u:%.2u:%.2u %s%s\e[0;37m %s:%d:\e[0;0m %s\n",
                 event.hour,
                 event.minute,
@@ -48,10 +48,10 @@ static void al_log_stdout(AlLogEvent event) {
     }
 }
 
-void _al_log(AlLogLevel level, const char *file, U32 line, const char *fmt, ...) {
+void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...) {
     time_t t = time(NULL);
     struct tm *tm = localtime(&t);
-    AlLogEvent event = {
+    ArLogEvent event = {
         .message = {0},
         .level = level,
         .hour = tm->tm_hour,
@@ -63,40 +63,40 @@ void _al_log(AlLogLevel level, const char *file, U32 line, const char *fmt, ...)
 
     va_list args;
     va_start(args, fmt);
-    vsnprintf(event.message, arrlen(event.message), fmt, args);
+    vsnprintf(event.message, ar_arrlen(event.message), fmt, args);
     va_end(args);
 
-    if (!_al_state.no_stdout) {
-        al_log_stdout(event);
+    if (!_ar_state.no_stdout) {
+        ar_log_stdout(event);
     }
 
-    for (U32 i = 0; i < _al_state.callback_count; i++) {
-        if (level <= _al_state.callbacks[i].level) {
-            _al_state.callbacks[i].func(event, _al_state.callbacks[i].userdata);
+    for (U32 i = 0; i < _ar_state.callback_count; i++) {
+        if (level <= _ar_state.callbacks[i].level) {
+            _ar_state.callbacks[i].func(event, _ar_state.callbacks[i].userdata);
         }
     }
 }
 
-void al_add_callback(AlCallback callback, AlLogLevel level, void *userdata) {
-    _al_state.callbacks[_al_state.callback_count].func = callback;
-    _al_state.callbacks[_al_state.callback_count].level = level;
-    _al_state.callbacks[_al_state.callback_count].userdata = userdata;
-    _al_state.callback_count++;
+void ar_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata) {
+    _ar_state.callbacks[_ar_state.callback_count].func = callback;
+    _ar_state.callbacks[_ar_state.callback_count].level = level;
+    _ar_state.callbacks[_ar_state.callback_count].userdata = userdata;
+    _ar_state.callback_count++;
 }
 
-static void _al_file_callback(AlLogEvent event, void *userdata) {
+static void _ar_file_callback(ArLogEvent event, void *userdata) {
     FILE *fp = userdata;
     fprintf(fp, "%s\n", event.message);
 }
 
-void al_add_fp(AlLogLevel level, FILE *fp) {
-    al_add_callback(_al_file_callback, level, fp);
+void ar_add_fp(ArLogLevel level, FILE *fp) {
+    ar_add_callback(_ar_file_callback, level, fp);
 }
 
-void al_set_no_stdout(B8 value) {
-    _al_state.no_stdout = value;
+void ar_set_no_stdout(B8 value) {
+    _ar_state.no_stdout = value;
 }
 
-void al_set_no_stdout_color(B8 value) {
-    _al_state.no_stdout_color = value;
+void ar_set_no_stdout_color(B8 value) {
+    _ar_state.no_stdout_color = value;
 }

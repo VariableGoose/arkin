@@ -2,21 +2,21 @@
 
 #include <stdlib.h>
 
-_ArkinCoreState _ac = {0};
+_ArkinCoreState _ar_core = {0};
 
-static void *_ac_default_malloc(U64 size, const char *file, U32 line) {
+static void *_ar_default_malloc(U64 size, const char *file, U32 line) {
     (void) file;
     (void) line;
     return malloc(size);
 }
 
-static void *_ac_default_realloc(void *ptr, U64 size, const char *file, U32 line) {
+static void *_ar_default_realloc(void *ptr, U64 size, const char *file, U32 line) {
     (void) file;
     (void) line;
     return realloc(ptr, size);
 }
 
-static void _ac_default_free(void *ptr, const char *file, U32 line) {
+static void _ar_default_free(void *ptr, const char *file, U32 line) {
     (void) file;
     (void) line;
     return free(ptr);
@@ -25,17 +25,17 @@ static void _ac_default_free(void *ptr, const char *file, U32 line) {
 void arkin_init(const ArkinCoreDesc *desc) {
     _ar_os_init();
 
-    _ac.malloc  = desc->malloc  == NULL ? _ac_default_malloc  : desc->malloc;
-    _ac.realloc = desc->realloc == NULL ? _ac_default_realloc : desc->realloc;
-    _ac.free    = desc->free    == NULL ? _ac_default_free    : desc->free;
+    _ar_core.malloc  = desc->malloc  == NULL ? _ar_default_malloc  : desc->malloc;
+    _ar_core.realloc = desc->realloc == NULL ? _ar_default_realloc : desc->realloc;
+    _ar_core.free    = desc->free    == NULL ? _ar_default_free    : desc->free;
 
-    _ac.thread_ctx = ar_thread_ctx_create();
-    ar_thread_ctx_set(_ac.thread_ctx);
+    _ar_core.thread_ctx = ar_thread_ctx_create();
+    ar_thread_ctx_set(_ar_core.thread_ctx);
 }
 
 void arkin_terminate(void) {
     ar_thread_ctx_set(NULL);
-    ar_thread_ctx_destroy(&_ac.thread_ctx);
+    ar_thread_ctx_destroy(&_ar_core.thread_ctx);
 
     _ar_os_terminate();
 }
@@ -145,12 +145,12 @@ ARKIN_THREAD ArThreadCtx *_ar_thread_ctx_curr = NULL;
 ArThreadCtx *ar_thread_ctx_create(void) {
     ArArena *arenas[SCRATCH_ARENA_COUNT] = {0};
 
-    for (U32 i = 0; i < arrlen(arenas); i++) {
+    for (U32 i = 0; i < ar_arrlen(arenas); i++) {
         arenas[i] = ar_arena_create_default();
     }
 
     ArThreadCtx *ctx = ar_arena_push_type(arenas[0], ArThreadCtx);
-    for (U32 i = 0; i < arrlen(arenas); i++) {
+    for (U32 i = 0; i < ar_arrlen(arenas); i++) {
         ctx->scratch_arenas[i] = arenas[i];
     }
 
@@ -161,11 +161,11 @@ void ar_thread_ctx_destroy(ArThreadCtx **ctx) {
     // Copy arena pointers because ctx lives on the first one so if we free the
     // first and then try to access the second one the program will segfault.
     ArArena *arenas[SCRATCH_ARENA_COUNT] = {0};
-    for (U32 i = 0; i < arrlen((*ctx)->scratch_arenas); i++) {
+    for (U32 i = 0; i < ar_arrlen((*ctx)->scratch_arenas); i++) {
         arenas[i] = (*ctx)->scratch_arenas[i];
     }
 
-    for (U32 i = 0; i < arrlen(arenas); i++) {
+    for (U32 i = 0; i < ar_arrlen(arenas); i++) {
         ar_arena_destroy(&arenas[i]);
     }
 
@@ -186,7 +186,7 @@ static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 cou
     }
 
     for (U8 i = 0; i < count; i++) {
-        for (U8 j = 0; j < arrlen(_ar_thread_ctx_curr->scratch_arenas); j++) {
+        for (U8 j = 0; j < ar_arrlen(_ar_thread_ctx_curr->scratch_arenas); j++) {
             if (_ar_thread_ctx_curr->scratch_arenas[j] == conflicting[i]) {
                 continue;
             }
@@ -325,7 +325,7 @@ static void *_ar_os_thread_entry(void *args) {
     _args->func(_args->args);
     ar_thread_ctx_destroy(&thread_ctx);
 
-    AC_FREE(_args);
+    AR_FREE(_args);
 
     return NULL;
 }
@@ -335,7 +335,7 @@ static void *_ar_os_thread_entry_no_ctx(void *args) {
 
     _args->func(_args->args);
 
-    AC_FREE(_args);
+    AR_FREE(_args);
 
     return NULL;
 }
@@ -343,7 +343,7 @@ static void *_ar_os_thread_entry_no_ctx(void *args) {
 ArThread ar_thread_start(ArThreadFunc func, void *args) {
     ArThread thread = {0};
 
-    _ArThreadArgs *targs = AC_MALLOC(sizeof(_ArThreadArgs));
+    _ArThreadArgs *targs = AR_MALLOC(sizeof(_ArThreadArgs));
     *targs = (_ArThreadArgs) {
         .func = func,
         .args = args,
@@ -359,7 +359,7 @@ ArThread ar_thread_start(ArThreadFunc func, void *args) {
 ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args) {
     ArThread thread = {0};
 
-    _ArThreadArgs *targs = AC_MALLOC(sizeof(_ArThreadArgs));
+    _ArThreadArgs *targs = AR_MALLOC(sizeof(_ArThreadArgs));
     *targs = (_ArThreadArgs) {
         .func = func,
         .args = args,

@@ -3,53 +3,53 @@
 
 #include "arkin_core.h"
 
-typedef struct AtCaseResult AtCaseResult;
-struct AtCaseResult {
+typedef struct ArCaseResult ArCaseResult;
+struct ArCaseResult {
     U32 line;
     const char *file;
     const char *msg;
     B8 passed;
 };
 
-typedef AtCaseResult (*AtTestFunc)(void);
+typedef ArCaseResult (*ArTestFunc)(void);
 
-typedef struct AtCase AtCase;
-struct AtCase {
-    AtCase *next;
-    AtCaseResult result;
+typedef struct ArCase ArCase;
+struct ArCase {
+    ArCase *next;
+    ArCaseResult result;
     const char *name;
-    AtTestFunc func;
+    ArTestFunc func;
 };
 
-typedef struct AtResult AtResult;
-struct AtResult {
-    AtCase *cases;
+typedef struct ArResult ArResult;
+struct ArResult {
+    ArCase *cases;
     U32 passed;
     U32 failed;
 };
 
-typedef struct AtTest AtTest;
-struct AtTest {
-    AtTest *next;
-    AtTestFunc func;
+typedef struct ArTest ArTest;
+struct ArTest {
+    ArTest *next;
+    ArTestFunc func;
 };
 
-typedef struct AtState AtState;
-struct AtState {
-    AtCase *end;
-    AtCase *cases;
+typedef struct ArState ArState;
+struct ArState {
+    ArCase *end;
+    ArCase *cases;
 };
 
-ARKIN_API AtState at_begin(void);
-ARKIN_API AtResult at_end(AtState state);
-ARKIN_API void at_result_free(AtResult *result);
+ARKIN_API ArState ar_begin(void);
+ARKIN_API ArResult ar_end(ArState state);
+ARKIN_API void ar_result_free(ArResult *result);
 
-#define AT_RUN_TEST(STATE, TEST) _at_run_test(STATE, TEST, #TEST)
+#define AR_RUN_TEST(STATE, TEST) _ar_run_test(STATE, TEST, #TEST)
 
-#define AT_SUCCESS() return (AtCaseResult) { .passed = true, .msg = NULL, .file = __FILE__, .line = __LINE__ }
-#define AT_ASSERT_MSG(VALUE, MSG) if (!(VALUE)) { return (AtCaseResult) { .passed = VALUE, .msg = MSG, .file = __FILE__, .line = __LINE__ }; }
-#define AT_ASSERT(VALUE) AT_ASSERT_MSG((VALUE), NULL)
+#define AR_SUCCESS() return (ArCaseResult) { .passed = true, .msg = NULL, .file = __FILE__, .line = __LINE__ }
+#define AR_ASSERT_MSG(VALUE, MSG) if (!(VALUE)) { return (ArCaseResult) { .passed = VALUE, .msg = MSG, .file = __FILE__, .line = __LINE__ }; }
+#define AR_ASSERT(VALUE) AR_ASSERT_MSG((VALUE), NULL)
 
-ARKIN_API void _at_run_test(AtState *state, AtTestFunc func, const char *name);
+ARKIN_API void _ar_run_test(ArState *state, ArTestFunc func, const char *name);
 
 #endif
