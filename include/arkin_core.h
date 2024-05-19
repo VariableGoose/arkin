@@ -124,14 +124,19 @@ ARKIN_API ArArena *ar_arena_create(U64 capacity);
 ARKIN_API ArArena *ar_arena_create_default(void);
 ARKIN_API void ar_arena_destroy(ArArena **arena);
 
+// Returns a zero initialized region of memory.
 ARKIN_API void *ar_arena_push(ArArena *arena, U64 size);
+// Returns an uninitialized region of memory.
+ARKIN_API void *ar_arena_push_no_zero(ArArena *arena, U64 size);
 ARKIN_API void ar_arena_pop(ArArena *arena, U64 size);
 ARKIN_API void ar_arena_reset(ArArena *arena);
 
 ARKIN_API U64 ar_arena_used(const ArArena *arena);
 
 #define ar_arena_push_arr(arena, type, len) ar_arena_push((arena), sizeof(type) * len)
+#define ar_arena_push_arr_no_zero(arena, type, len) ar_arena_push_no_zero((arena), sizeof(type) * len)
 #define ar_arena_push_type(arena, type) ar_arena_push((arena), sizeof(type))
+#define ar_arena_push_type_no_zero(arena, type) ar_arena_push_no_zero((arena), sizeof(type))
 
 typedef struct ArTemp ArTemp;
 struct ArTemp {

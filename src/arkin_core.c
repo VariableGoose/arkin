@@ -1,6 +1,7 @@
 #include "arkin_core.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 _ArkinCoreState _ar_core = {0};
 
@@ -79,6 +80,12 @@ void ar_arena_destroy(ArArena **arena) {
 }
 
 void *ar_arena_push(ArArena *arena, U64 size) {
+    void *result = ar_arena_push_no_zero(arena, size);
+    memset(result, 0, size);
+    return result;
+}
+
+void *ar_arena_push_no_zero(ArArena *arena, U64 size) {
     void *result = arena->ptr + arena->position;
 
     arena->position += size;
