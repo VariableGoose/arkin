@@ -275,6 +275,7 @@ void *ar_os_mem_reserve(U64 size) {
     size = align_to_page_size(size + sizeof(_ArOsAllocInfo));
 
     _ArOsAllocInfo *info = mmap(NULL, size + sizeof(_ArOsAllocInfo), PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+    madvise((U8 *) info + page_size, size - page_size, MADV_DONTNEED);
     mprotect(info, page_size, PROT_READ | PROT_WRITE);
     info->size = size;
     info->commited = page_size;
