@@ -4,5 +4,6 @@
 #include "arkin_test.h"
 
 extern ArResult test_core(void);
+extern ArResult test_ll(void);
 
 #endif

@@ -7,6 +7,7 @@ option(ARKIN_BUILD_SHARED_LIB "Build shared library." OFF)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED true)
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
+set(CMAKE_BUILD_TYPE debug)
 
 if (ARKIN_BUILD_SHARED_LIB)
     set(ARKIN_LIB_TYPE SHARED)
@@ -24,7 +25,8 @@ target_include_directories(arkin PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURC
 if (ARKIN_BUILD_TESTS)
     add_executable(test
         tests/main.c
-        tests/core.c)
+        tests/core.c
+        tests/linked_lists.c)
     target_link_libraries(test arkin)
     target_include_directories(test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
 endif ()

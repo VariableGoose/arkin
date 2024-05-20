@@ -161,6 +161,78 @@ ARKIN_API void ar_thread_ctx_destroy(ArThreadCtx **ctx);
 ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
 
 //
+// Linked lists
+//
+
+#define ar_null_set(p) ((p) = 0)
+#define ar_null_check(p) ((p) == 0)
+
+#define ar_dll_insert(f, l, n, p) ar_dll_insert_npz(f, l, n, p, next, prev, ar_null_check, ar_null_set)
+#define ar_dll_push_back(f, l, n) ar_dll_insert_npz(f, l, n, l, next, prev, ar_null_check, ar_null_set)
+#define ar_dll_push_front(f, l, n) ar_dll_insert_npz(f, l, n, (__typeof__(n)) 0, next, prev, ar_null_check, ar_null_set)
+
+#define ar_dll_remove(f, l, n) ar_dll_remove_npz(f, l, n, next, prev, ar_null_check, ar_null_set)
+#define ar_dll_pop_back(f, l) ar_dll_remove_npz(f, l, l, next, prev, ar_null_check, ar_null_set)
+#define ar_dll_pop_front(f, l) ar_dll_remove_npz(f, l, f, next, prev, ar_null_check, ar_null_set)
+
+#define ar_dll_insert_npz(f, l, n, p, next, prev, zero_check, zero_set) do { \
+    if (zero_check(f)) { \
+        (f) = (l) = (n); \
+        zero_set((n)->next); \
+        zero_set((n)->prev); \
+    } else { \
+        if (zero_check(p)) { \
+            (n)->next = (f); \
+            zero_set((n)->prev); \
+            (f)->prev = (n); \
+            (f) = (n); \
+        } else { \
+            if (!zero_check((p)->next)) { \
+                (p)->next->prev = (n); \
+                (n)->next = (p)->next; \
+            } \
+            (n)->prev = (p); \
+            (p)->next = (n); \
+            if ((p) == (l)) { \
+                (l) = (n); \
+            } \
+        } \
+    } \
+} while (0)
+#define ar_dll_push_back_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_insert_npz(f, l, n, l, next, prev, zero_check, zero_set)
+#define ar_dll_push_front_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_insert_npz(f, l, n, (__typeof__(n)) 0, next, prev, zero_check, zero_set)
+
+#define ar_dll_remove_npz(f, l, n, next, prev, zero_check, zero_set) do { \
+    if (!zero_check(f)) { \
+        if ((f) == (l)) { \
+            zero_set(f); \
+            zero_set(l); \
+        } else { \
+            if (!zero_check((n)->next)) { \
+                (n)->next->prev = (n)->prev; \
+            } \
+            if (!zero_check((n)->prev)) { \
+                (n)->prev->next = (n)->next; \
+            } \
+            if ((n) == (f)) { \
+                if (!zero_check((f)->next)) { \
+                    (f)->next->prev = (f)->next; \
+                } \
+                (f) = (f)->next; \
+            } \
+            if ((n) == (l)) { \
+                if (!zero_check((l)->prev)) { \
+                    (l)->prev->next = (l)->prev; \
+                } \
+                (l) = (l)->prev; \
+            } \
+        } \
+    } \
+} while (0)
+#define ar_dll_pop_back_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_remove_npz(f, l, l, next, prev, zero_check, zero_set)
+#define ar_dll_pop_front_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_remove_npz(f, l, f, next, prev, zero_check, zero_set)
+
+//
 // Platform
 //
 

@@ -22,6 +22,7 @@ I32 main(void) {
     arkin_init(&(ArkinCoreDesc) {0});
 
     check(test_core());
+    check(test_ll());
 
     arkin_terminate();
     return 0;
