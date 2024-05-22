@@ -26,7 +26,8 @@ if (ARKIN_BUILD_TESTS)
     add_executable(test
         tests/main.c
         tests/core.c
-        tests/linked_lists.c)
+        tests/linked_lists.c
+        tests/strings.c)
     target_link_libraries(test arkin)
     target_include_directories(test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
 endif ()

@@ -9,7 +9,7 @@ struct Foobar {
     F32 baz;
 };
 
-ArCaseResult test_offsetof(void) {
+ArTestCaseResult test_offsetof(void) {
     AR_ASSERT(ar_offsetof(Foobar, foo) == 0);
     AR_ASSERT(ar_offsetof(Foobar, bar) == 8);
     AR_ASSERT(ar_offsetof(Foobar, baz) == 16);
@@ -17,7 +17,7 @@ ArCaseResult test_offsetof(void) {
     AR_SUCCESS();
 }
 
-ArCaseResult test_arrlen(void) {
+ArTestCaseResult test_arrlen(void) {
     Foobar arr8[8] = {0};
     AR_ASSERT(ar_arrlen(arr8) == 8);
 
@@ -27,7 +27,7 @@ ArCaseResult test_arrlen(void) {
     AR_SUCCESS();
 }
 
-ArCaseResult test_constants(void) {
+ArTestCaseResult test_constants(void) {
     AR_ASSERT(NULL == (void *) 0);
     AR_ASSERT(true == 1);
     AR_ASSERT(false == 0);
@@ -35,7 +35,7 @@ ArCaseResult test_constants(void) {
     AR_SUCCESS();
 }
 
-ArCaseResult test_sizes(void) {
+ArTestCaseResult test_sizes(void) {
     AR_ASSERT(sizeof(U8)  == 1);
     AR_ASSERT(sizeof(U16) == 2);
     AR_ASSERT(sizeof(U32) == 4);
@@ -55,7 +55,7 @@ ArCaseResult test_sizes(void) {
     AR_SUCCESS();
 }
 
-ArCaseResult test_page_size(void) {
+ArTestCaseResult test_page_size(void) {
 #ifdef ARKIN_OS_LINUX
     #include <unistd.h>
 
@@ -67,8 +67,8 @@ ArCaseResult test_page_size(void) {
     AR_ASSERT_MSG(false, "OS not supported.");
 }
 
-ArResult test_core(void) {
-    ArState state = ar_begin();
+ArTestResult test_core(void) {
+    ArTestState state = ar_test_begin();
 
     AR_RUN_TEST(&state, test_offsetof);
     AR_RUN_TEST(&state, test_arrlen);
@@ -76,5 +76,5 @@ ArResult test_core(void) {
     AR_RUN_TEST(&state, test_sizes);
     AR_RUN_TEST(&state, test_page_size);
 
-    return ar_end(state);
+    return ar_test_end(state);
 }

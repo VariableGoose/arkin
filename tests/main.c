@@ -1,9 +1,10 @@
+#include "arkin_core.h"
 #include "arkin_log.h"
 
 #include "test.h"
 
-static void check(ArResult res) {
-    for (const ArCase *c = res.cases; c != NULL; c = c->next) {
+static void check(ArTestResult res) {
+    for (const ArTestCase *c = res.cases; c != NULL; c = c->next) {
         if (c->result.passed) {
             ar_info("%s: passed", c->name);
         } else {
@@ -15,7 +16,7 @@ static void check(ArResult res) {
         }
     }
 
-    ar_result_free(&res);
+    ar_test_result_free(&res);
 }
 
 I32 main(void) {
@@ -23,6 +24,7 @@ I32 main(void) {
 
     check(test_core());
     check(test_ll());
+    check(test_strings());
 
     arkin_terminate();
     return 0;

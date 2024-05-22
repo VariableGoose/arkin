@@ -214,6 +214,168 @@ ArTemp ar_scratch_get(ArArena **conflicting, U32 count) {
 }
 
 //
+// Strings
+//
+
+// Char helpers
+B8 ar_char_is_numeric(char c) {
+    return c >= '0' && c <= '9';
+}
+
+B8 ar_char_is_alpha(char c) {
+    return ar_char_is_lower(c) || ar_char_is_upper(c);
+}
+
+B8 ar_char_is_lower(char c) {
+    return c >= 'a' && c <= 'z';
+}
+
+B8 ar_char_is_upper(char c) {
+    return c >= 'A' && c <= 'Z';
+}
+
+B8 ar_char_is_whitespace(char c) {
+    return c == ' ' ||
+        c == '\t' ||
+        c == '\n' ||
+        c == '\r' ||
+        c == '\v' ||
+        c == '\f';
+}
+
+char ar_char_to_lower(char c) {
+    if (ar_char_is_upper(c)) {
+        c += 'a' - 'A';
+    }
+    return c;
+}
+
+char ar_char_to_upper(char c) {
+    if (ar_char_is_lower(c)) {
+        c -= 'a' - 'A';
+    }
+    return c;
+}
+
+B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags) {
+    if (a.len != b.len && !(flags & AR_STR_MATCH_FLAG_SLOPPY_LENGTH)) {
+        return false;
+    }
+    U64 len = ar_min(a.len, b.len);
+    for (U64 i = 0; i < len; i++) {
+        char _a = a.data[i];
+        char _b = b.data[i];
+        if (flags & AR_STR_MATCH_FLAG_CASE_INSENSITIVE) {
+            _a = ar_char_to_lower(_a);
+            _b = ar_char_to_lower(_b);
+        }
+
+        if (_a != _b) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+ArStr ar_str_sub(ArStr str, U64 start, U64 end) {
+    if (start > end) {
+        U64 temp = start;
+        start = end;
+        end = temp;
+    }
+
+    if (start >= str.len) {
+        start = str.len - 1;
+    }
+    if (end >= str.len) {
+        start = str.len - 1;
+    }
+
+    return ar_str(str.data + start, end - start + 1);
+}
+
+ArStr ar_str_sub_len(ArStr str, U64 start, U64 len) {
+    return ar_str_sub(str, start, start + len - 1);
+}
+
+U64 ar_str_find(ArStr haystack, ArStr needle, ArStrMatchFlag flags) {
+    U64 index = 0;
+    for (U64 i = 0; i < haystack.len; i++) {
+        if (flags & AR_STR_MATCH_FLAG_LAST) {
+            index = haystack.len - i - 1;
+        } else {
+            index = i;
+        }
+
+        ArStr sub = ar_str_sub_len(haystack, index, needle.len);
+        if (ar_str_match(needle, sub, flags | AR_STR_MATCH_FLAG_SLOPPY_LENGTH)) {
+            return index;
+        }
+    }
+
+    return haystack.len;
+}
+
+U64 ar_str_find_char(ArStr haystack, char needle, ArStrMatchFlag flags) {
+    U64 index = 0;
+    for (U64 i = 0; i < haystack.len; i++) {
+        if (flags & AR_STR_MATCH_FLAG_LAST) {
+            index = haystack.len - i - 1;
+        } else {
+            index = i;
+        }
+
+        char a = needle;
+        char b = haystack.data[index];
+        if (flags & AR_STR_MATCH_FLAG_CASE_INSENSITIVE) {
+            a = ar_char_to_lower(a);
+            b = ar_char_to_lower(b);
+        }
+
+        if (a == b) {
+            return index;
+        }
+    }
+
+    return haystack.len;
+}
+
+ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags) {
+    ArStrList list = {0};
+
+    U64 start = 0;
+    while (start < str.len) {
+        U64 next = start + ar_str_find(ar_str_chop_start(str, start), delim, flags);
+
+        ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
+        node->str = ar_str_sub(str, start, next - 1);
+        ar_sll_queue_push(list.first, list.last, node);
+
+        start = next + delim.len;
+    }
+
+    return list;
+}
+
+ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFlag flags) {
+    ArStrList list = {0};
+
+    U64 start = 0;
+    while (start < str.len) {
+        U64 next = start + ar_str_find_char(ar_str_chop_start(str, start), delim, flags);
+
+        ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
+        node->str = ar_str_sub(str, start, next - 1);
+        ar_sll_queue_push(list.first, list.last, node);
+
+        start = next + 1;
+    }
+
+    return list;
+}
+
+//
 // Platform
 //
 

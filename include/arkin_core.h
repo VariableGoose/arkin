@@ -84,13 +84,13 @@ typedef U32 B32;
 #define NULL ((void *) 0)
 #endif
 
-#ifndef ar_arrlen
 #define ar_arrlen(ARR) (sizeof(ARR) / sizeof(ARR[0]))
-#endif
 
-#ifndef ar_offsetof
 #define ar_offsetof(T, M) ((U64) (void *) &((T *) NULL)->M)
-#endif
+
+#define ar_max(a, b) (a > b ? a : b)
+#define ar_min(a, b) (a < b ? a : b)
+#define ar_lerp(a, b, t) ((a) + ((b) - (a)) * (t))
 
 #define AR_MALLOC(SIZE) _ar_core.malloc(SIZE, __FILE__, __LINE__)
 #define AR_REALLOC(PTR, SIZE) _ar_core.realloc(PTR, SIZE, __FILE__, __LINE__)
@@ -167,6 +167,7 @@ ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
 #define ar_null_set(p) ((p) = 0)
 #define ar_null_check(p) ((p) == 0)
 
+// Doubly linked list
 #define ar_dll_insert(f, l, n, p) ar_dll_insert_npz(f, l, n, p, next, prev, ar_null_check, ar_null_set)
 #define ar_dll_push_back(f, l, n) ar_dll_insert_npz(f, l, n, l, next, prev, ar_null_check, ar_null_set)
 #define ar_dll_push_front(f, l, n) ar_dll_insert_npz(f, l, n, (__typeof__(n)) 0, next, prev, ar_null_check, ar_null_set)
@@ -231,6 +232,100 @@ ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
 } while (0)
 #define ar_dll_pop_back_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_remove_npz(f, l, l, next, prev, zero_check, zero_set)
 #define ar_dll_pop_front_npz(f, l, n, next, prev, zero_check, zero_set) ar_dll_remove_npz(f, l, f, next, prev, zero_check, zero_set)
+
+// Singly linked list
+#define ar_sll_queue_push(f, l, n) ar_sll_queue_push_nz(f, l, n, next, ar_null_check, ar_null_set)
+#define ar_sll_queue_pop(f, l) ar_sll_queue_pop_nz(f, l, next, ar_null_check, ar_null_set)
+
+#define ar_sll_queue_push_nz(f, l, n, next, zero_check, zero_set) do { \
+    if (zero_check(f)) { \
+        (f) = (l) = (n); \
+    } else { \
+        (l)->next = (n); \
+        (l) = (n); \
+    } \
+    (n)->next = NULL; \
+} while (0)
+#define ar_sll_queue_pop_nz(f, l, next, zero_check, zero_set) do { \
+    if ((f) == (l)) { \
+        zero_set(f); \
+        zero_set(l); \
+    } else { \
+        (f) = (f)->next; \
+    }\
+} while (0)
+
+//
+// Strings
+//
+
+// Char helpers
+ARKIN_API B8 ar_char_is_numeric(char c);
+ARKIN_API B8 ar_char_is_alpha(char c);
+ARKIN_API B8 ar_char_is_lower(char c);
+ARKIN_API B8 ar_char_is_upper(char c);
+ARKIN_API B8 ar_char_is_whitespace(char c);
+ARKIN_API char ar_char_to_lower(char c);
+ARKIN_API char ar_char_to_upper(char c);
+
+// Non-destructive length based strings.
+// No operation shall change the data of the string, instead producing a new
+// one.
+
+typedef struct ArStr ArStr;
+struct ArStr {
+    U64 len;
+    const char *data;
+};
+
+typedef enum {
+    AR_STR_MATCH_FLAG_EXACT,
+
+    AR_STR_MATCH_FLAG_LAST = 1 << 0,
+    AR_STR_MATCH_FLAG_SLOPPY_LENGTH = 1 << 1,
+    AR_STR_MATCH_FLAG_CASE_INSENSITIVE = 1 << 2,
+
+    AR_STR_MATCH_FLAG_COUNT,
+} ArStrMatchFlag;
+
+typedef struct ArStrListNode ArStrListNode;
+struct ArStrListNode {
+    ArStrListNode *next;
+    ArStr str;
+};
+
+typedef struct ArStrList ArStrList;
+struct ArStrList {
+    ArStrListNode *first;
+    ArStrListNode *last;
+};
+
+#define ar_str_lit(str) (ArStr) { sizeof(str) - 1, str }
+#define ar_cstr(str) (ArStr) { strlen(str), str }
+#define ar_str(str, len) (ArStr) { len, str }
+
+// If sloppy length is specified, smallest length will be used to match.
+ARKIN_API B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags);
+
+// Inclusive range of start and end.
+ARKIN_API ArStr ar_str_sub(ArStr str, U64 start, U64 end);
+// Inclusive range of start and end.
+ARKIN_API ArStr ar_str_sub_len(ArStr str, U64 start, U64 len);
+
+ARKIN_INLINE ArStr ar_str_chop_start(ArStr str, U64 len) {
+    return ar_str_sub(str, len, str.len - 1);
+}
+ARKIN_INLINE ArStr ar_str_chop_end(ArStr str, U64 len) {
+    return ar_str_sub(str, 0, str.len - len - 1);
+}
+
+// Returns haystack length if no needle was found.
+ARKIN_API U64 ar_str_find(ArStr haystack, ArStr needle, ArStrMatchFlag flags);
+ARKIN_API U64 ar_str_find_char(ArStr haystack, char needle, ArStrMatchFlag flags);
+
+ARKIN_API ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags);
+ARKIN_API ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFlag flags);
+
 
 //
 // Platform
