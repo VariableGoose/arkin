@@ -49,7 +49,7 @@ ARKIN_API void ar_add_fp(ArLogLevel level, FILE *fp);
 ARKIN_API void ar_set_no_stdout(B8 value);
 ARKIN_API void ar_set_no_stdout_color(B8 value);
 
-ARKIN_API void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...);
+ARKIN_API void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...) AR_FORMAT_FUNCTION(4, 5);
 
 typedef struct _ArkinLogState _ArkinLogState;
 struct _ArkinLogState {

@@ -44,6 +44,12 @@
 #define ARKIN_THREAD __declspec(thread)
 #endif
 
+#ifdef ARKIN_OS_LINUX
+#define AR_FORMAT_FUNCTION(FORMAT_INDEX, VA_INDEX) __attribute__((format(printf, FORMAT_INDEX, VA_INDEX)))
+#else
+#define RE_FORMAT_FUNCTION(FORMAT_INDEX, VA_INDEX)
+#endif
+
 // Unsigned 8-bit integer.
 typedef unsigned char      U8;
 // Unsigned 16-bit integer.
