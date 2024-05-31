@@ -1,7 +1,9 @@
 #include "arkin_core.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 _ArkinCoreState _ar_core = {0};
 
@@ -257,6 +259,70 @@ char ar_char_to_upper(char c) {
     return c;
 }
 
+// String list
+
+void ar_str_list_push(ArArena *arena, ArStrList *list, ArStr str) {
+    ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
+    node->str = str;
+
+    ar_dll_push_back(list->first, list->last, node);
+}
+
+void ar_str_list_push_front(ArArena *arena, ArStrList *list, ArStr str) {
+    ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
+    node->str = str;
+
+    ar_dll_push_front(list->first, list->last, node);
+}
+
+void ar_str_list_pop(ArStrList *list) {
+    ar_dll_pop_back(list->first, list->last);
+}
+
+void ar_str_list_pop_front(ArStrList *list) {
+    ar_dll_pop_front(list->first, list->last);
+}
+
+ArStr ar_str_list_join(ArArena *arena, ArStrList list) {
+    U64 len = 0;
+    for (ArStrListNode *curr = list.first; curr != NULL; curr = curr->next) {
+        len += curr->str.len;
+    }
+
+    U8 *data = ar_arena_push_no_zero(arena, len);
+    U64 i = 0;
+    for (ArStrListNode *curr = list.first; curr != NULL; curr = curr->next) {
+        for (U64 j = 0; j < curr->str.len; j++) {
+            data[i + j] = curr->str.data[j];
+        }
+        i += curr->str.len;
+    }
+
+    return ar_str(data, len);
+}
+
+ArStr ar_str_format(ArArena *arena, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+
+    va_list args_len;
+    va_copy(args_len, args);
+
+    U64 len = vsnprintf(NULL, 0, fmt, args_len);
+    va_end(args_len);
+    // Temporary length for null-terminator.
+    len++;
+
+    U8 *data = ar_arena_push_arr_no_zero(arena, U8, len);
+
+    vsnprintf((char *) data, len, fmt, args);
+    va_end(args);
+
+    // Remove null-terminator from string.
+    len--;
+    return ar_str(data, len);
+}
+
 B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags) {
     if (a.len != b.len && !(flags & AR_STR_MATCH_FLAG_SLOPPY_LENGTH)) {
         return false;
@@ -348,9 +414,7 @@ ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag fl
     while (start < str.len) {
         U64 next = start + ar_str_find(ar_str_chop_start(str, start), delim, flags);
 
-        ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
-        node->str = ar_str_sub(str, start, next - 1);
-        ar_sll_queue_push(list.first, list.last, node);
+        ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
 
         start = next + delim.len;
     }
@@ -365,9 +429,7 @@ ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFla
     while (start < str.len) {
         U64 next = start + ar_str_find_char(ar_str_chop_start(str, start), delim, flags);
 
-        ArStrListNode *node = ar_arena_push_type(arena, ArStrListNode);
-        node->str = ar_str_sub(str, start, next - 1);
-        ar_sll_queue_push(list.first, list.last, node);
+        ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
 
         start = next + 1;
     }

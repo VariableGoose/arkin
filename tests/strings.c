@@ -196,6 +196,47 @@ ArTestCaseResult test_string_split(void) {
     AR_SUCCESS();
 }
 
+ArTestCaseResult test_string_list(void) {
+    ArTemp scratch = ar_scratch_get(NULL, 0);
+
+    {
+        ArStrList list = {0};
+
+        ar_str_list_push(scratch.arena, &list, ar_str_lit("foo"));
+        ar_str_list_push(scratch.arena, &list, ar_str_lit("bar"));
+
+        AR_ASSERT(ar_str_match(list.first->str, ar_str_lit("foo"), 0));
+        AR_ASSERT(ar_str_match(list.last->str, ar_str_lit("bar"), 0));
+    }
+
+    {
+        ArStrList list = {0};
+
+        ar_str_list_push_front(scratch.arena, &list, ar_str_lit("foo"));
+        ar_str_list_push_front(scratch.arena, &list, ar_str_lit("bar"));
+
+        AR_ASSERT(ar_str_match(list.first->str, ar_str_lit("bar"), 0));
+        AR_ASSERT(ar_str_match(list.last->str, ar_str_lit("foo"), 0));
+    }
+
+    {
+        ArStrList list = {0};
+
+        ar_str_list_push(scratch.arena, &list, ar_str_lit("foo"));
+        ar_str_list_push(scratch.arena, &list, ar_str_lit("bar"));
+        ar_str_list_push(scratch.arena, &list, ar_str_lit("qux"));
+        ar_str_list_push_front(scratch.arena, &list, ar_str_lit("lorem"));
+
+        ArStr join = ar_str_list_join(scratch.arena, list);
+
+        AR_ASSERT(ar_str_match(join, ar_str_lit("loremfoobarqux"), 0));
+    }
+
+    ar_scratch_release(&scratch);
+
+    AR_SUCCESS();
+}
+
 ArTestResult test_strings(void) {
     ArTestState state = ar_test_begin();
 
@@ -204,6 +245,7 @@ ArTestResult test_strings(void) {
     AR_RUN_TEST(&state, test_string_sub);
     AR_RUN_TEST(&state, test_string_find);
     AR_RUN_TEST(&state, test_string_split);
+    AR_RUN_TEST(&state, test_string_list);
 
     return ar_test_end(state);
 }

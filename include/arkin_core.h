@@ -261,6 +261,21 @@ ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
     }\
 } while (0)
 
+#define ar_sll_stack_push(f, n) ar_sll_stack_push_nz(f, n, next, ar_null_check)
+#define ar_sll_stack_pop(f) ar_sll_stack_pop_nz(f, next, ar_null_check)
+
+#define ar_sll_stack_push_nz(f, n, next, zero_check) do { \
+    if (!zero_check(f)) { \
+        n->next = f; \
+    } \
+    f = n; \
+} while (0)
+#define ar_sll_stack_pop_nz(f, next, zero_check) do { \
+    if (!zero_check(f)) { \
+        f = f->next; \
+    } \
+} while (0)
+
 //
 // Strings
 //
@@ -281,7 +296,7 @@ ARKIN_API char ar_char_to_upper(char c);
 typedef struct ArStr ArStr;
 struct ArStr {
     U64 len;
-    const char *data;
+    const U8 *data;
 };
 
 typedef enum {
@@ -294,9 +309,12 @@ typedef enum {
     AR_STR_MATCH_FLAG_COUNT,
 } ArStrMatchFlag;
 
+// String list
+
 typedef struct ArStrListNode ArStrListNode;
 struct ArStrListNode {
     ArStrListNode *next;
+    ArStrListNode *prev;
     ArStr str;
 };
 
@@ -306,9 +324,25 @@ struct ArStrList {
     ArStrListNode *last;
 };
 
-#define ar_str_lit(str) (ArStr) { sizeof(str) - 1, str }
+const static ArStrList AR_STR_LIST_INIT = {0};
+
+// Pushes string into the back of the string list.
+ARKIN_API void ar_str_list_push(ArArena *arena, ArStrList *list, ArStr str);
+// Pushes string into the front of the string list.
+ARKIN_API void ar_str_list_push_front(ArArena *arena, ArStrList *list, ArStr str);
+
+// Pops string from the back of the string list.
+ARKIN_API void ar_str_list_pop(ArStrList *list);
+// Pops string from the back of the string list.
+ARKIN_API void ar_str_list_pop_front(ArStrList *list);
+
+ARKIN_API ArStr ar_str_list_join(ArArena *arena, ArStrList list);
+
+#define ar_str_lit(str) (ArStr) { sizeof(str) - 1, (const U8 *) str }
 #define ar_cstr(str) (ArStr) { strlen(str), str }
 #define ar_str(str, len) (ArStr) { len, str }
+
+ARKIN_API ArStr ar_str_format(ArArena *arena, const char *fmt, ...) AR_FORMAT_FUNCTION(2, 3);
 
 // If sloppy length is specified, smallest length will be used to match.
 ARKIN_API B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags);
@@ -331,7 +365,6 @@ ARKIN_API U64 ar_str_find_char(ArStr haystack, char needle, ArStrMatchFlag flags
 
 ARKIN_API ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags);
 ARKIN_API ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFlag flags);
-
 
 //
 // Platform
