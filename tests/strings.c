@@ -237,6 +237,25 @@ ArTestCaseResult test_string_list(void) {
     AR_SUCCESS();
 }
 
+ArTestCaseResult test_string_trim(void) {
+    {
+        ArStr trim = ar_str_trim(ar_str_lit("   foobar     \n "));
+        AR_ASSERT(ar_str_match(trim, ar_str_lit("foobar"), 0));
+    }
+
+    {
+        ArStr trim = ar_str_trim_front(ar_str_lit("   foobar   \n"));
+        AR_ASSERT(ar_str_match(trim, ar_str_lit("foobar   \n"), 0));
+    }
+
+    {
+        ArStr trim = ar_str_trim_back(ar_str_lit("   foobar   \n"));
+        AR_ASSERT(ar_str_match(trim, ar_str_lit("   foobar"), 0));
+    }
+
+    AR_SUCCESS();
+}
+
 ArTestResult test_strings(void) {
     ArTestState state = ar_test_begin();
 
@@ -245,6 +264,7 @@ ArTestResult test_strings(void) {
     AR_RUN_TEST(&state, test_string_sub);
     AR_RUN_TEST(&state, test_string_find);
     AR_RUN_TEST(&state, test_string_split);
+    AR_RUN_TEST(&state, test_string_list);
     AR_RUN_TEST(&state, test_string_list);
 
     return ar_test_end(state);

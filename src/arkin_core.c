@@ -407,6 +407,24 @@ U64 ar_str_find_char(ArStr haystack, char needle, ArStrMatchFlag flags) {
     return haystack.len;
 }
 
+ArStr ar_str_trim(ArStr str) {
+    ArStr front = ar_str_trim_front(str);
+    ArStr back = ar_str_trim_back(front);
+    return back;
+}
+
+ArStr ar_str_trim_front(ArStr str) {
+    U64 i = 0;
+    for (; i < str.len && ar_char_is_whitespace(str.data[i]); i++);
+    return ar_str_chop_start(str, i);
+}
+
+ArStr ar_str_trim_back(ArStr str) {
+    U64 i = 0;
+    for (; i < str.len && ar_char_is_whitespace(str.data[str.len - i - 1]); i++);
+    return ar_str_chop_end(str, i);
+}
+
 ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags) {
     ArStrList list = {0};
 

@@ -363,6 +363,13 @@ ARKIN_INLINE ArStr ar_str_chop_end(ArStr str, U64 len) {
 ARKIN_API U64 ar_str_find(ArStr haystack, ArStr needle, ArStrMatchFlag flags);
 ARKIN_API U64 ar_str_find_char(ArStr haystack, char needle, ArStrMatchFlag flags);
 
+// Trim both beginning and end of a string.
+ARKIN_API ArStr ar_str_trim(ArStr str);
+// Trim beginning end of a string.
+ARKIN_API ArStr ar_str_trim_front(ArStr str);
+// Trim end end of a string.
+ARKIN_API ArStr ar_str_trim_back(ArStr str);
+
 ARKIN_API ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags);
 ARKIN_API ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFlag flags);
 
