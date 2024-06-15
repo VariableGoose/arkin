@@ -256,6 +256,28 @@ ArTestCaseResult test_string_trim(void) {
     AR_SUCCESS();
 }
 
+ArTestCaseResult test_string_format(void) {
+    ArTemp scratch = ar_scratch_get(NULL, 0);
+
+    ArStr format = ar_str_format(scratch.arena, "foo%d", 42);
+    AR_ASSERT(ar_str_match(format, ar_str_lit("foo42"), 0));
+
+    ar_scratch_release(&scratch);
+
+    AR_SUCCESS();
+}
+
+ArTestCaseResult test_string_copy(void) {
+    ArTemp scratch = ar_scratch_get(NULL, 0);
+
+    ArStr copy = ar_str_push_copy(scratch.arena, ar_str_lit("foobar"));
+    AR_ASSERT(ar_str_match(copy, ar_str_lit("foobar"), 0));
+
+    ar_scratch_release(&scratch);
+
+    AR_SUCCESS();
+}
+
 ArTestResult test_strings(void) {
     ArTestState state = ar_test_begin();
 
@@ -265,7 +287,8 @@ ArTestResult test_strings(void) {
     AR_RUN_TEST(&state, test_string_find);
     AR_RUN_TEST(&state, test_string_split);
     AR_RUN_TEST(&state, test_string_list);
-    AR_RUN_TEST(&state, test_string_list);
+    AR_RUN_TEST(&state, test_string_format);
+    AR_RUN_TEST(&state, test_string_copy);
 
     return ar_test_end(state);
 }

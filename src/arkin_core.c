@@ -323,6 +323,12 @@ ArStr ar_str_format(ArArena *arena, const char *fmt, ...) {
     return ar_str(data, len);
 }
 
+ArStr ar_str_push_copy(ArArena *arena, ArStr str) {
+    U8 *data = ar_arena_push_arr_no_zero(arena, U8, str.len);
+    memcpy(data, str.data, str.len);
+    return ar_str(data, str.len);
+}
+
 B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags) {
     if (a.len != b.len && !(flags & AR_STR_MATCH_FLAG_SLOPPY_LENGTH)) {
         return false;

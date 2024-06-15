@@ -345,6 +345,7 @@ ARKIN_API ArStr ar_str_list_join(ArArena *arena, ArStrList list);
 #define ar_str(str, len) (ArStr) { len, str }
 
 ARKIN_API ArStr ar_str_format(ArArena *arena, const char *fmt, ...) AR_FORMAT_FUNCTION(2, 3);
+ARKIN_API ArStr ar_str_push_copy(ArArena *arena, ArStr str);
 
 // If sloppy length is specified, smallest length will be used to match.
 ARKIN_API B8 ar_str_match(ArStr a, ArStr b, ArStrMatchFlag flags);
