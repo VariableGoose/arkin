@@ -1,6 +1,8 @@
 #ifndef ARKIN_CORE_H
 #define ARKIN_CORE_H
 
+#include <string.h> // strlen
+
 #ifdef __linux__
 #define ARKIN_OS_LINUX
 #endif
@@ -339,7 +341,7 @@ ARKIN_API void ar_str_list_pop_front(ArStrList *list);
 ARKIN_API ArStr ar_str_list_join(ArArena *arena, ArStrList list);
 
 #define ar_str_lit(str) (ArStr) { sizeof(str) - 1, (const U8 *) str }
-#define ar_cstr(str) (ArStr) { strlen(str), str }
+#define ar_str_cstr(str) (ArStr) { strlen(str), (const U8 *) str }
 #define ar_str(str, len) (ArStr) { len, str }
 
 ARKIN_API ArStr ar_str_format(ArArena *arena, const char *fmt, ...) AR_FORMAT_FUNCTION(2, 3);
