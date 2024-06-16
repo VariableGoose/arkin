@@ -24,7 +24,7 @@ ArTestCaseResult test_hash_map_insert(void) {
             .arena = scratch.arena,
             .capacity = 16,
 
-            .cmp_func = str_cmp,
+            .eq_func = str_cmp,
             .hash_func = str_hash,
 
             .key_size = sizeof(ArStr),
@@ -65,7 +65,7 @@ ArTestCaseResult test_hash_map_set(void) {
             .arena = scratch.arena,
             .capacity = 16,
 
-            .cmp_func = str_cmp,
+            .eq_func = str_cmp,
             .hash_func = str_hash,
 
             .key_size = sizeof(ArStr),
@@ -99,7 +99,7 @@ ArTestCaseResult test_hash_map_remove(void) {
             .arena = scratch.arena,
             .capacity = 16,
 
-            .cmp_func = str_cmp,
+            .eq_func = str_cmp,
             .hash_func = str_hash,
 
             .key_size = sizeof(ArStr),
@@ -121,7 +121,7 @@ ArTestCaseResult test_hash_map_has(void) {
             .arena = scratch.arena,
             .capacity = 16,
 
-            .cmp_func = str_cmp,
+            .eq_func = str_cmp,
             .hash_func = str_hash,
 
             .key_size = sizeof(ArStr),
@@ -151,7 +151,7 @@ ArTestCaseResult test_hash_map_get(void) {
             .arena = scratch.arena,
             .capacity = 16,
 
-            .cmp_func = str_cmp,
+            .eq_func = str_cmp,
             .hash_func = str_hash,
 
             .key_size = sizeof(ArStr),

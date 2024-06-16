@@ -465,6 +465,20 @@ ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFla
 // Hash map
 //
 
+B8 ar_memeq(const void *a, const void *b, U64 len) {
+    return memcmp(a, b, len) == 0;
+}
+
+U64 ar_fvn1a_hash(const void *data, U64 len) {
+    const U8 *_data = data;
+    U64 hash = 2166136261u;
+    for (U32 i = 0; i < len; i++) {
+        hash ^= *(_data + i);
+        hash *= 16777619;
+    }
+    return hash;
+}
+
 typedef struct ArHashMapNode ArHashMapNode;
 struct ArHashMapNode {
     ArHashMapNode *next;
@@ -542,7 +556,7 @@ B8 _ar_hash_map_set(ArHashMap *map, const void *key, const void *value) {
     ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
 
     for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
-        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+        if (map->desc.eq_func(key, node->key, map->desc.key_size)) {
             memcpy(node->value, value, map->desc.value_size);
             return false;
         }
@@ -558,7 +572,7 @@ B8 _ar_hash_map_remove(ArHashMap *map, const void *key) {
     ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
 
     for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
-        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+        if (map->desc.eq_func(key, node->key, map->desc.key_size)) {
             ar_sll_stack_push(map->free_list, node);
             ar_dll_remove(bucket->first, bucket->last, node);
 
@@ -573,7 +587,7 @@ B8 _ar_hash_map_has(const ArHashMap *map, const void *key) {
     ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
 
     for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
-        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+        if (map->desc.eq_func(key, node->key, map->desc.key_size)) {
             return true;
         }
     }
@@ -585,7 +599,7 @@ void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output) {
     ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
 
     for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
-        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+        if (map->desc.eq_func(key, node->key, map->desc.key_size)) {
             memcpy(output, node->value, map->desc.value_size);
             return;
         }
@@ -596,16 +610,6 @@ void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output) {
 
 ArArena *ar_hash_map_get_arena(const ArHashMap *map) {
     return map->desc.arena;
-}
-
-U64 ar_fvn1a_hash(const void *data, U64 len) {
-    const U8 *_data = data;
-    U64 hash = 2166136261u;
-    for (U32 i = 0; i < len; i++) {
-        hash ^= *(_data + i);
-        hash *= 16777619;
-    }
-    return hash;
 }
 
 //

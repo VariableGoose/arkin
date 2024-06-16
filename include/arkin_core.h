@@ -381,10 +381,11 @@ ARKIN_API ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArS
 // Hash map
 //
 
+ARKIN_API B8 ar_memeq(const void *a, const void *b, U64 len);
 ARKIN_API U64 ar_fvn1a_hash(const void *data, U64 len);
 
 typedef U64 (*ArHashFunc)(const void *data, U64 len);
-typedef B8 (*ArHashMapCmpFunc)(const void *a, const void *b, U64 len);
+typedef B8 (*ArHashMapEqualFunc)(const void *a, const void *b, U64 len);
 
 typedef struct ArHashMapDesc ArHashMapDesc;
 struct ArHashMapDesc {
@@ -392,7 +393,7 @@ struct ArHashMapDesc {
     U32 capacity;
 
     ArHashFunc hash_func;
-    ArHashMapCmpFunc cmp_func;
+    ArHashMapEqualFunc eq_func;
 
     U64 key_size;
     U64 value_size;
