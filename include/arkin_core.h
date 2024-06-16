@@ -452,6 +452,13 @@ ARKIN_API ArArena *ar_hash_map_get_arena(const ArHashMap *map);
     _ar_hm_temp_return_value; \
 })
 
+// Gets a pointer to the interval storage place for the key. Returns null
+// if the key isn't present within the hash map.
+#define ar_hash_map_get_ptr(map, key) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    _ar_hash_map_get_ptr(map, &_ar_hm_temp_key); \
+})
+
 // Private API.
 // Recommended to not touch this unless you know what's going on underneath
 // the hood.
@@ -460,6 +467,7 @@ ARKIN_API B8 _ar_hash_map_set(ArHashMap *map, const void *key, const void *value
 ARKIN_API B8 _ar_hash_map_remove(ArHashMap *map, const void *key);
 ARKIN_API B8 _ar_hash_map_has(const ArHashMap *map, const void *key);
 ARKIN_API void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output);
+ARKIN_API void * _ar_hash_map_get_ptr(const ArHashMap *map, const void *key);
 
 //
 // Platform

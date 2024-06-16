@@ -608,6 +608,18 @@ void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output) {
     memcpy(output, map->null_value, map->desc.value_size);
 }
 
+void *_ar_hash_map_get_ptr(const ArHashMap *map, const void *key) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
+        if (map->desc.eq_func(key, node->key, map->desc.key_size)) {
+            return node->value;
+        }
+    }
+
+    return NULL;
+}
+
 ArArena *ar_hash_map_get_arena(const ArHashMap *map) {
     return map->desc.arena;
 }

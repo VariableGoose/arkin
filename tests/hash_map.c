@@ -171,6 +171,36 @@ ArTestCaseResult test_hash_map_get(void) {
     AR_SUCCESS();
 }
 
+ArTestCaseResult test_hash_map_get_ptr(void) {
+    ArTemp scratch = ar_scratch_get(NULL, 0);
+
+    // Key: ArStr
+    // Value: U32
+    U32 null_value = ~0;
+    ArHashMap *map = ar_hash_map_init((ArHashMapDesc) {
+            .arena = scratch.arena,
+            .capacity = 16,
+
+            .eq_func = str_cmp,
+            .hash_func = str_hash,
+
+            .key_size = sizeof(ArStr),
+            .value_size = sizeof(U32),
+            .null_value = &null_value,
+        });
+
+    ar_hash_map_insert(map, ar_str_lit("foobar"), 42);
+
+    U32 *value = ar_hash_map_get_ptr(map, ar_str_lit("foobar"));
+    AR_ASSERT(*value == 42);
+
+    value = ar_hash_map_get_ptr(map, ar_str_lit("qux"));
+    AR_ASSERT(value == NULL);
+
+    ar_scratch_release(&scratch);
+    AR_SUCCESS();
+}
+
 ArTestResult test_hash_map(void) {
     ArTestState state = ar_test_begin();
 
@@ -179,6 +209,7 @@ ArTestResult test_hash_map(void) {
     AR_RUN_TEST(&state, test_hash_map_get);
     AR_RUN_TEST(&state, test_hash_map_set);
     AR_RUN_TEST(&state, test_hash_map_remove);
+    AR_RUN_TEST(&state, test_hash_map_get_ptr);
 
     return ar_test_end(state);
 }
