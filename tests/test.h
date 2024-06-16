@@ -6,5 +6,6 @@
 extern ArTestResult test_core(void);
 extern ArTestResult test_ll(void);
 extern ArTestResult test_strings(void);
+extern ArTestResult test_hash_map(void);
 
 #endif

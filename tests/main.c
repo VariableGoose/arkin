@@ -25,6 +25,7 @@ I32 main(void) {
     check(test_core());
     check(test_ll());
     check(test_strings());
+    check(test_hash_map());
 
     arkin_terminate();
     return 0;

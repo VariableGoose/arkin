@@ -462,6 +462,153 @@ ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFla
 }
 
 //
+// Hash map
+//
+
+typedef struct ArHashMapNode ArHashMapNode;
+struct ArHashMapNode {
+    ArHashMapNode *next;
+    ArHashMapNode *prev;
+
+    void *key;
+    void *value;
+};
+
+typedef struct ArHashMapBucket ArHashMapBucket;
+struct ArHashMapBucket {
+    ArHashMapNode *first;
+    ArHashMapNode *last;
+};
+
+struct ArHashMap {
+    ArHashMapDesc desc;
+
+    ArHashMapBucket *buckets;
+    ArHashMapNode *free_list;
+    void *null_value;
+};
+
+ArHashMap *ar_hash_map_init(ArHashMapDesc desc) {
+    ArHashMap *map = ar_arena_push_type_no_zero(desc.arena, ArHashMap);
+    *map = (ArHashMap) {
+        .desc = desc,
+        .buckets = ar_arena_push_arr(desc.arena, ArHashMapBucket, desc.capacity),
+        .null_value = ar_arena_push_no_zero(desc.arena, desc.value_size),
+    };
+    memcpy(map->null_value, desc.null_value, desc.value_size);
+
+    return map;
+}
+
+static ArHashMapNode *hash_map_get_node(ArHashMap *map, const void *key, const void *value) {
+    ArHashMapNode *node = NULL;
+    if (map->free_list != NULL) {
+        node = map->free_list;
+        ar_sll_stack_pop(map->free_list);
+    }
+
+    if (node == NULL) {
+        node = ar_arena_push_type(map->desc.arena, ArHashMapNode);
+        node->key = ar_arena_push_no_zero(map->desc.arena, map->desc.key_size);
+        node->value = ar_arena_push_no_zero(map->desc.arena, map->desc.value_size);
+    }
+
+    memcpy(node->key, key, map->desc.key_size);
+    memcpy(node->value, value, map->desc.value_size);
+
+    return node;
+}
+
+static ArHashMapBucket *hash_map_get_bucket(const ArHashMap *map, const void *key) {
+    U64 hash = map->desc.hash_func(key, map->desc.key_size);
+    U32 index = hash % map->desc.capacity;
+    return &map->buckets[index];
+}
+
+B8 _ar_hash_map_insert(ArHashMap *map, const void *key, const void *value) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    if (bucket->first != NULL) {
+        return false;
+    }
+
+    ArHashMapNode *node = hash_map_get_node(map, key, value);
+    ar_dll_push_back(bucket->first, bucket->last, node);
+
+    return true;
+}
+
+B8 _ar_hash_map_set(ArHashMap *map, const void *key, const void *value) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
+        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+            memcpy(node->value, value, map->desc.value_size);
+            return false;
+        }
+    }
+
+    ArHashMapNode *node = hash_map_get_node(map, key, value);
+    ar_dll_push_back(bucket->first, bucket->last, node);
+
+    return true;
+}
+
+B8 _ar_hash_map_remove(ArHashMap *map, const void *key) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
+        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+            ar_sll_stack_push(map->free_list, node);
+            ar_dll_remove(bucket->first, bucket->last, node);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+B8 _ar_hash_map_has(const ArHashMap *map, const void *key) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
+        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output) {
+    ArHashMapBucket *bucket = hash_map_get_bucket(map, key);
+
+    for (ArHashMapNode *node = bucket->first; node != NULL; node = node->next) {
+        if (map->desc.cmp_func(key, node->key, map->desc.key_size)) {
+            memcpy(output, node->value, map->desc.value_size);
+            return;
+        }
+    }
+
+    memcpy(output, map->null_value, map->desc.value_size);
+}
+
+ArArena *ar_hash_map_get_arena(const ArHashMap *map) {
+    return map->desc.arena;
+}
+
+U64 ar_fvn1a_hash(const void *data, U64 len) {
+    const U8 *_data = data;
+    U64 hash = 2166136261u;
+    for (U32 i = 0; i < len; i++) {
+        hash ^= *(_data + i);
+        hash *= 16777619;
+    }
+    return hash;
+}
+
+//
 // Platform
 //
 

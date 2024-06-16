@@ -328,6 +328,7 @@ struct ArStrList {
 
 const static ArStrList AR_STR_LIST_INIT = {0};
 
+
 // Pushes string into the back of the string list.
 ARKIN_API void ar_str_list_push(ArArena *arena, ArStrList *list, ArStr str);
 // Pushes string into the front of the string list.
@@ -375,6 +376,89 @@ ARKIN_API ArStr ar_str_trim_back(ArStr str);
 
 ARKIN_API ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag flags);
 ARKIN_API ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFlag flags);
+
+//
+// Hash map
+//
+
+ARKIN_API U64 ar_fvn1a_hash(const void *data, U64 len);
+
+typedef U64 (*ArHashFunc)(const void *data, U64 len);
+typedef B8 (*ArHashMapCmpFunc)(const void *a, const void *b, U64 len);
+
+typedef struct ArHashMapDesc ArHashMapDesc;
+struct ArHashMapDesc {
+    ArArena *arena;
+    U32 capacity;
+
+    ArHashFunc hash_func;
+    ArHashMapCmpFunc cmp_func;
+
+    U64 key_size;
+    U64 value_size;
+    const void *null_value;
+};
+
+typedef struct ArHashMap ArHashMap;
+
+// Initializes a new hash map.
+// If the key-value is something living on the
+// heap it is recommended to clone it onto the hash map arena before using
+// it in a set or insert operation. If the memory becomes invalid while the
+// hash map is still in use, something might break.
+ARKIN_API ArHashMap *ar_hash_map_init(ArHashMapDesc desc);
+
+// Getter for hash map arena.
+ARKIN_API ArArena *ar_hash_map_get_arena(const ArHashMap *map);
+
+// Inserts a unique key-value pair into the hash map.
+// Returns true if operation was successful, false if key was already present
+// within the hash map.
+#define ar_hash_map_insert(map, key, value) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    __typeof__(value) _ar_hm_temp_value = value; \
+    _ar_hash_map_insert(map, &_ar_hm_temp_key, &_ar_hm_temp_value); \
+})
+
+// Sets the value of key. If key isn't present in the hash map it is inserted,
+// if it does, its value is updated.
+#define ar_hash_map_set(map, key, value) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    __typeof__(value) _ar_hm_temp_value = value; \
+    _ar_hash_map_set(map, &_ar_hm_temp_key, &_ar_hm_temp_value); \
+})
+
+// Removes a key-value pair from the hash map.
+// Return true if a pair was removed. Returns false if no pair with the same
+// key was found.
+#define ar_hash_map_remove(map, key) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    _ar_hash_map_remove(map, &_ar_hm_temp_key); \
+})
+
+// Checks whether a key is present in the hash map.
+#define ar_hash_map_has(map, key) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    _ar_hash_map_remove(map, &_ar_hm_temp_key); \
+})
+
+// Gets a value from a key-value pair within the hash map. Returns the null
+// value specified when initializing the hash map if no pair was found.
+#define ar_hash_map_get(map, key, value_type) ({ \
+    __typeof__(key) _ar_hm_temp_key = key; \
+    value_type _ar_hm_temp_return_value; \
+    _ar_hash_map_get(map, &_ar_hm_temp_key, &_ar_hm_temp_return_value); \
+    _ar_hm_temp_return_value; \
+})
+
+// Private API.
+// Recommended to not touch this unless you know what's going on underneath
+// the hood.
+ARKIN_API B8 _ar_hash_map_insert(ArHashMap *map, const void *key, const void *value);
+ARKIN_API B8 _ar_hash_map_set(ArHashMap *map, const void *key, const void *value);
+ARKIN_API B8 _ar_hash_map_remove(ArHashMap *map, const void *key);
+ARKIN_API B8 _ar_hash_map_has(const ArHashMap *map, const void *key);
+ARKIN_API void _ar_hash_map_get(const ArHashMap *map, const void *key, void *output);
 
 //
 // Platform

@@ -27,7 +27,9 @@ if (ARKIN_BUILD_TESTS)
         tests/main.c
         tests/core.c
         tests/linked_lists.c
-        tests/strings.c)
+        tests/strings.c
+        tests/hash_map.c
+    )
     target_link_libraries(test arkin)
     target_include_directories(test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
 endif ()
