@@ -225,13 +225,13 @@ ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
             } \
             if ((n) == (f)) { \
                 if (!zero_check((f)->next)) { \
-                    (f)->next->prev = (f)->next; \
+                    (f)->next->prev = (f)->prev; \
                 } \
                 (f) = (f)->next; \
             } \
             if ((n) == (l)) { \
                 if (!zero_check((l)->prev)) { \
-                    (l)->prev->next = (l)->prev; \
+                    (l)->prev->next = (l)->next; \
                 } \
                 (l) = (l)->prev; \
             } \
