@@ -190,6 +190,24 @@ ArTestCaseResult test_string_split(void) {
         AR_ASSERT(qux->next == NULL);
     }
 
+    {
+        ArStr str = ar_str_lit("/foo/bar/qux//");
+
+        ArStrList split = ar_str_split_char(scratch.arena, str, '/', AR_STR_MATCH_FLAG_EXACT);
+
+        ArStrListNode *empty = split.first;
+        ArStrListNode *foo = empty->next;
+        ArStrListNode *bar = foo->next;
+        ArStrListNode *qux = bar->next;
+        ArStrListNode *empty_end = qux->next;
+
+        AR_ASSERT(ar_str_match(empty->str, ar_str_lit(""), AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(ar_str_match(foo->str, ar_str_lit("foo"), AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(ar_str_match(bar->str, ar_str_lit("bar"), AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(ar_str_match(qux->str, ar_str_lit("qux"), AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(ar_str_match(empty_end->str, ar_str_lit(""), AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(empty_end->next == NULL);
+    }
 
     ar_scratch_release(&scratch);
 

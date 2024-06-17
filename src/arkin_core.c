@@ -438,7 +438,11 @@ ArStrList ar_str_split(ArArena *arena, ArStr str, ArStr delim, ArStrMatchFlag fl
     while (start < str.len) {
         U64 next = start + ar_str_find(ar_str_chop_start(str, start), delim, flags);
 
-        ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
+        if (next == start) {
+            ar_str_list_push(arena, &list, ar_str(str.data, 0));
+        } else {
+            ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
+        }
 
         start = next + delim.len;
     }
@@ -453,7 +457,11 @@ ArStrList ar_str_split_char(ArArena *arena, ArStr str, char delim, ArStrMatchFla
     while (start < str.len) {
         U64 next = start + ar_str_find_char(ar_str_chop_start(str, start), delim, flags);
 
-        ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
+        if (next == start) {
+            ar_str_list_push(arena, &list, ar_str(str.data, 0));
+        } else {
+            ar_str_list_push(arena, &list, ar_str_sub(str, start, next - 1));
+        }
 
         start = next + 1;
     }
