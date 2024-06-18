@@ -12,7 +12,12 @@ struct _ArkinCoreState {
 static _ArkinCoreState _ar_core = {0};
 
 void arkin_init(const ArkinCoreDesc *desc) {
-    _ar_os_init();
+    ArkinCoreDesc _desc = *desc;
+    if (desc->thread_pool_capacity == 0) {
+        _desc.thread_pool_capacity = 256;
+    }
+
+    _ar_os_init(_desc.thread_pool_capacity);
 
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
@@ -720,9 +725,11 @@ void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle) {
 
 typedef struct _ArOsState _ArOsState;
 struct _ArOsState {
-    B8 inited;
-    U32 page_size;
     F64 start_time;
+    U32 page_size;
+
+    ArArena *os_arena;
+    ArPool *thread_pool;
 };
 
 typedef struct _ArOsAllocInfo _ArOsAllocInfo;
@@ -732,25 +739,32 @@ struct _ArOsAllocInfo {
     U64 commited;
 };
 
+typedef struct _ArOsThread _ArOsThread;
+struct _ArOsThread {
+    pthread_t thread_id;
+    ArThreadFunc func;
+    void *args;
+};
+
 static _ArOsState _ar_os_state = {0};
 
-void _ar_os_init(void) {
-    if (_ar_os_state.inited) {
-        return;
-    }
+void _ar_os_init(U32 thread_pool_capacity) {
+    _ar_os_state = (_ArOsState) {0};
 
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
+    _ar_os_state.start_time = ts.tv_sec + ts.tv_nsec * 1e-9,
 
-    _ar_os_state = (_ArOsState) {
-        .inited = true,
-        .page_size = sysconf(_SC_PAGE_SIZE),
-        .start_time = ts.tv_sec + ts.tv_nsec * 1e-9,
-    };
+    _ar_os_state.page_size = sysconf(_SC_PAGE_SIZE);
+
+    ArArena *arena = ar_arena_create_default();
+    _ar_os_state.os_arena = arena;
+
+    _ar_os_state.thread_pool = ar_pool_init(arena, thread_pool_capacity, sizeof(_ArOsThread));
 }
 
 void _ar_os_terminate(void) {
-    _ar_os_state.inited = false;
+    ar_arena_destroy(&_ar_os_state.os_arena);
 }
 
 F64 ar_os_get_time(void) {
@@ -814,84 +828,81 @@ void ar_os_mem_release(void *ptr) {
 }
 
 // TODO: Remove malloc and free call by having the OS layer handle thread info in a pool.
-typedef struct _ArThreadArgs _ArThreadArgs;
-struct _ArThreadArgs {
-    ArThreadFunc func;
-    void *args;
-};
-
 static void *_ar_os_thread_entry(void *args) {
-    _ArThreadArgs *_args = args;
+    _ArOsThread *thread = args;
 
     ArThreadCtx *thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(thread_ctx);
-    _args->func(_args->args);
+    thread->func(thread->args);
     ar_thread_ctx_destroy(&thread_ctx);
-
-    free(_args);
 
     return NULL;
 }
 
 static void *_ar_os_thread_entry_no_ctx(void *args) {
-    _ArThreadArgs *_args = args;
+    _ArOsThread *thread = args;
 
-    _args->func(_args->args);
-
-    free(_args);
+    thread->func(thread->args);
 
     return NULL;
 }
 
-ArThread ar_thread_start(ArThreadFunc func, void *args) {
-    ArThread thread = {0};
-
-    _ArThreadArgs *targs = malloc(sizeof(_ArThreadArgs));
-    *targs = (_ArThreadArgs) {
-        .func = func,
-        .args = args,
+ArThread ar_thread_create(ArThreadFunc func, void *args) {
+    ArThread handle = {
+        .handle = ar_pool_handle_create(_ar_os_state.thread_pool),
     };
 
-    // thread_args = (_ArThreadArgs) {
-    //     .func = func,
-    //     .args = args,
-    // };
+    _ArOsThread *thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, handle.handle);
+    if (thread == NULL) {
+        return handle;
+    }
 
-    pthread_t handle;
-    pthread_create(&handle, NULL, _ar_os_thread_entry, targs);
-    thread.handle = handle;
+    thread->func = func;
+    thread->args = args;
 
-    return thread;
+    pthread_create(&thread->thread_id, NULL, _ar_os_thread_entry, thread);
+
+    return handle;
 }
 
-ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args) {
-    ArThread thread = {0};
-
-    _ArThreadArgs *targs = malloc(sizeof(_ArThreadArgs));
-    *targs = (_ArThreadArgs) {
-        .func = func,
-        .args = args,
+ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args) {
+    ArThread handle = {
+        .handle = ar_pool_handle_create(_ar_os_state.thread_pool),
     };
 
-    pthread_t handle;
-    pthread_create(&handle, NULL, _ar_os_thread_entry_no_ctx, targs);
-    thread.handle = handle;
+    _ArOsThread *thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, handle.handle);
+    thread->func = func;
+    thread->args = args;
 
-    return thread;
-}
+    pthread_create(&thread->thread_id, NULL, _ar_os_thread_entry_no_ctx, thread);
 
-ArThread ar_thread_current(void) {
-    return (ArThread) {
-        .handle = pthread_self(),
-    };
+    return handle;
 }
 
 void ar_thread_join(ArThread thread) {
-    pthread_join(thread.handle, NULL);
+    _ArOsThread *os_thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, thread.handle);
+    if (os_thread == NULL) {
+        return;
+    }
+
+    pthread_join(os_thread->thread_id, NULL);
+
+    ar_thread_destroy(thread);
 }
 
 void ar_thread_detatch(ArThread thread) {
-    pthread_detach(thread.handle);
+    _ArOsThread *os_thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, thread.handle);
+    if (os_thread == NULL) {
+        return;
+    }
+
+    pthread_detach(os_thread->thread_id);
+
+    ar_thread_destroy(thread);
+}
+
+void ar_thread_destroy(ArThread thread) {
+    ar_pool_handle_destroy(_ar_os_state.thread_pool, thread.handle);
 }
 
 #endif

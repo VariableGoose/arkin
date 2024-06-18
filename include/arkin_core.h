@@ -116,7 +116,9 @@ static const I32 I32_MAX = (I32) ~0 ^ I32_MIN;
 static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 
 typedef struct ArkinCoreDesc ArkinCoreDesc;
-struct ArkinCoreDesc {};
+struct ArkinCoreDesc {
+    U32 thread_pool_capacity;
+};
 
 // Initializes global state needed by other arkin function calls.
 // This should be called at the start of a program by the main thread.
@@ -486,7 +488,7 @@ struct ArPoolHandle {
     U64 handle;
 };
 
-static const ArPoolHandle AR_POOL_HANDLE_INVALID = {U32_MAX};
+static const ArPoolHandle AR_POOL_HANDLE_INVALID = {U64_MAX};
 
 ARKIN_API ArPool *ar_pool_init(ArArena *arena, U32 capacity, U64 object_size);
 ARKIN_API ArPoolHandle ar_pool_handle_create(ArPool *pool);
@@ -531,20 +533,20 @@ ARKIN_API void ar_os_mem_release(void *ptr);
 
 typedef struct ArThread ArThread;
 struct ArThread {
-    U64 handle;
+    ArPoolHandle handle;
 };
 
 typedef void (*ArThreadFunc)(void *args);
 
-ARKIN_API ArThread ar_thread_start(ArThreadFunc func, void *args);
+ARKIN_API ArThread ar_thread_create(ArThreadFunc func, void *args);
 // Starts a thread without creating a thread context.
 // Without a thread context scratch arenas won't be available.
-ARKIN_API ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args);
-ARKIN_API ArThread ar_thread_current(void);
+ARKIN_API ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args);
 ARKIN_API void ar_thread_join(ArThread thread);
 ARKIN_API void ar_thread_detatch(ArThread thread);
+ARKIN_API void ar_thread_destroy(ArThread thread);
 
-ARKIN_API void _ar_os_init(void);
+ARKIN_API void _ar_os_init(U32 thread_pool_capacity);
 ARKIN_API void _ar_os_terminate(void);
 
 #endif
