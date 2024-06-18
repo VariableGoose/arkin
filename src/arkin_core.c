@@ -1,9 +1,13 @@
 #include "arkin_core.h"
+#include "arkin_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+
+static void _ar_os_init(U32 thread_pool_cap, U32 mutex_pool_cap);
+static void _ar_os_terminate(void);
 
 typedef struct _ArkinCoreState _ArkinCoreState;
 struct _ArkinCoreState {
@@ -16,8 +20,11 @@ void arkin_init(const ArkinCoreDesc *desc) {
     if (desc->thread_pool_capacity == 0) {
         _desc.thread_pool_capacity = 256;
     }
+    if (desc->mutex_pool_capacity == 0) {
+        _desc.mutex_pool_capacity = 256;
+    }
 
-    _ar_os_init(_desc.thread_pool_capacity);
+    _ar_os_init(_desc.thread_pool_capacity, _desc.mutex_pool_capacity);
 
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
@@ -712,6 +719,34 @@ void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle) {
     return pool->pool + index * pool->object_size;
 }
 
+ArPoolHandle ar_pool_iter_init(const ArPool *pool) {
+    for (U32 i = 0; i < pool->capacity; i++) {
+        if (pool->used[i]) {
+            return (ArPoolHandle) {
+                .handle = (U64) pool->generation[i] << 32 | i,
+            };
+        }
+    }
+
+    return AR_POOL_HANDLE_INVALID;
+}
+
+B8 ar_pool_iter_valid(const ArPool *pool, ArPoolHandle iter) {
+    return ar_pool_handle_valid(pool, iter);
+}
+
+ArPoolHandle ar_pool_iter_next(const ArPool *pool, ArPoolHandle iter) {
+    for (U32 i = ((U32) iter.handle) + 1; i < pool->capacity; i++) {
+        if (pool->used[i]) {
+            return (ArPoolHandle) {
+                .handle = (U64) pool->generation[i] << 32 | i,
+            };
+        }
+    }
+
+    return AR_POOL_HANDLE_INVALID;
+}
+
 //
 // Platform
 //
@@ -722,15 +757,6 @@ void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle) {
 #include <time.h>
 #include <sys/mman.h>
 #include <pthread.h>
-
-typedef struct _ArOsState _ArOsState;
-struct _ArOsState {
-    F64 start_time;
-    U32 page_size;
-
-    ArArena *os_arena;
-    ArPool *thread_pool;
-};
 
 typedef struct _ArOsAllocInfo _ArOsAllocInfo;
 struct _ArOsAllocInfo {
@@ -746,9 +772,27 @@ struct _ArOsThread {
     void *args;
 };
 
+typedef struct _ArOsMutex _ArOsMutex;
+struct _ArOsMutex {
+    pthread_mutex_t pmutex;
+};
+
+typedef struct _ArOsState _ArOsState;
+struct _ArOsState {
+    F64 start_time;
+    U32 page_size;
+
+    ArArena *os_arena;
+
+    ArPool *mutex_pool;
+    ArPool *thread_pool;
+
+    ArMutex mutex_pool_mutex;
+    ArMutex thread_pool_mutex;
+};
 static _ArOsState _ar_os_state = {0};
 
-void _ar_os_init(U32 thread_pool_capacity) {
+static void _ar_os_init(U32 thread_pool_cap, U32 mutex_pool_cap) {
     _ar_os_state = (_ArOsState) {0};
 
     struct timespec ts;
@@ -760,10 +804,20 @@ void _ar_os_init(U32 thread_pool_capacity) {
     ArArena *arena = ar_arena_create_default();
     _ar_os_state.os_arena = arena;
 
-    _ar_os_state.thread_pool = ar_pool_init(arena, thread_pool_capacity, sizeof(_ArOsThread));
+    _ar_os_state.mutex_pool = ar_pool_init(arena, mutex_pool_cap, sizeof(_ArOsMutex));
+    _ar_os_state.thread_pool = ar_pool_init(arena, thread_pool_cap, sizeof(_ArOsThread));
+
+    _ar_os_state.mutex_pool_mutex = ar_mutex_create();
+    _ar_os_state.thread_pool_mutex = ar_mutex_create();
 }
 
-void _ar_os_terminate(void) {
+static void _ar_os_terminate(void) {
+    for (ArPoolHandle iter = ar_pool_iter_init(_ar_os_state.mutex_pool);
+        ar_pool_iter_valid(_ar_os_state.mutex_pool, iter);
+        iter = ar_pool_iter_next(_ar_os_state.mutex_pool, iter)) {
+        ar_mutex_destroy((ArMutex) { .handle = iter });
+    }
+
     ar_arena_destroy(&_ar_os_state.os_arena);
 }
 
@@ -827,7 +881,10 @@ void ar_os_mem_release(void *ptr) {
     munmap(info, info->size);
 }
 
-// TODO: Remove malloc and free call by having the OS layer handle thread info in a pool.
+//
+// Threads
+//
+
 static void *_ar_os_thread_entry(void *args) {
     _ArOsThread *thread = args;
 
@@ -903,6 +960,62 @@ void ar_thread_detatch(ArThread thread) {
 
 void ar_thread_destroy(ArThread thread) {
     ar_pool_handle_destroy(_ar_os_state.thread_pool, thread.handle);
+}
+
+//
+// Mutexes
+//
+
+ArMutex ar_mutex_create(void) {
+    ar_mutex_lock(_ar_os_state.mutex_pool_mutex);
+
+    ArMutex handle = {
+        .handle = ar_pool_handle_create(_ar_os_state.mutex_pool),
+    };
+
+    _ArOsMutex *mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, handle.handle);
+    if (mutex == NULL) {
+        return handle;
+    }
+
+    pthread_mutex_init(&mutex->pmutex, NULL);
+
+    ar_mutex_unlock(_ar_os_state.mutex_pool_mutex);
+
+    return handle;
+}
+
+void ar_mutex_destroy(ArMutex mutex) {
+    ar_mutex_lock(_ar_os_state.mutex_pool_mutex);
+
+    _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
+    if (os_mutex == NULL) {
+        return;
+    }
+
+    pthread_mutex_destroy(&os_mutex->pmutex);
+
+    ar_pool_handle_destroy(_ar_os_state.mutex_pool, mutex.handle);
+
+    ar_mutex_unlock(_ar_os_state.mutex_pool_mutex);
+}
+
+void ar_mutex_lock(ArMutex mutex) {
+    _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
+    if (os_mutex == NULL) {
+        return;
+    }
+
+    pthread_mutex_lock(&os_mutex->pmutex);
+}
+
+void ar_mutex_unlock(ArMutex mutex) {
+    _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
+    if (os_mutex == NULL) {
+        return;
+    }
+
+    pthread_mutex_unlock(&os_mutex->pmutex);
 }
 
 #endif

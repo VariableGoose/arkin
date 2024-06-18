@@ -118,6 +118,7 @@ static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 typedef struct ArkinCoreDesc ArkinCoreDesc;
 struct ArkinCoreDesc {
     U32 thread_pool_capacity;
+    U32 mutex_pool_capacity;
 };
 
 // Initializes global state needed by other arkin function calls.
@@ -496,6 +497,10 @@ ARKIN_API void ar_pool_handle_destroy(ArPool *pool, ArPoolHandle handle);
 ARKIN_API B8 ar_pool_handle_valid(const ArPool *pool, ArPoolHandle handle);
 ARKIN_API void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle);
 
+ARKIN_API ArPoolHandle ar_pool_iter_init(const ArPool *pool);
+ARKIN_API B8 ar_pool_iter_valid(const ArPool *pool, ArPoolHandle iter);
+ARKIN_API ArPoolHandle ar_pool_iter_next(const ArPool *pool, ArPoolHandle iter);
+
 //
 // Platform
 //
@@ -538,15 +543,30 @@ struct ArThread {
 
 typedef void (*ArThreadFunc)(void *args);
 
+// Starts a thread.
 ARKIN_API ArThread ar_thread_create(ArThreadFunc func, void *args);
 // Starts a thread without creating a thread context.
 // Without a thread context scratch arenas won't be available.
 ARKIN_API ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args);
-ARKIN_API void ar_thread_join(ArThread thread);
-ARKIN_API void ar_thread_detatch(ArThread thread);
+// Cleans up the OS specific thread things and frees up space in the thread pool.
 ARKIN_API void ar_thread_destroy(ArThread thread);
+// Waits for the thread to finish. Destroys the thread. Don't call ar_thread_destroy after calling this function.
+ARKIN_API void ar_thread_join(ArThread thread);
+// Detaches thread from program. Destroys the thread. Don't call ar_thread_destroy after calling this function.
+ARKIN_API void ar_thread_detatch(ArThread thread);
 
-ARKIN_API void _ar_os_init(U32 thread_pool_capacity);
-ARKIN_API void _ar_os_terminate(void);
+//
+// Mutexes
+//
+
+typedef struct ArMutex ArMutex;
+struct ArMutex {
+    ArPoolHandle handle;
+};
+
+ARKIN_API ArMutex ar_mutex_create(void);
+ARKIN_API void ar_mutex_destroy(ArMutex mutex);
+ARKIN_API void ar_mutex_lock(ArMutex mutex);
+ARKIN_API void ar_mutex_unlock(ArMutex mutex);
 
 #endif
