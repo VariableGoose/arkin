@@ -3,9 +3,10 @@
 
 #include "arkin_test.h"
 
-extern ArTestResult test_core(void);
-extern ArTestResult test_ll(void);
-extern ArTestResult test_strings(void);
-extern ArTestResult test_hash_map(void);
+extern ArTestResult test_core(ArArena *arena);
+extern ArTestResult test_ll(ArArena *arena);
+extern ArTestResult test_strings(ArArena *arena);
+extern ArTestResult test_hash_map(ArArena *arena);
+extern ArTestResult test_pool(ArArena *arena);
 
 #endif

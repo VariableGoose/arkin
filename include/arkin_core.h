@@ -100,16 +100,23 @@ typedef U32 B32;
 #define ar_min(a, b) (a < b ? a : b)
 #define ar_lerp(a, b, t) ((a) + ((b) - (a)) * (t))
 
-#define AR_MALLOC(SIZE) _ar_core.malloc(SIZE, __FILE__, __LINE__)
-#define AR_REALLOC(PTR, SIZE) _ar_core.realloc(PTR, SIZE, __FILE__, __LINE__)
-#define AR_FREE(PTR) _ar_core.free(PTR, __FILE__, __LINE__)
+static const U8  U8_MAX  = ~((U8)  0);
+static const U16 U16_MAX = ~((U16) 0);
+static const U32 U32_MAX = ~((U32) 0);
+static const U64 U64_MAX = ~((U64) 0);
+
+static const I8  I8_MIN  = (I8)  (1 << 7);
+static const I16 I16_MIN = (I16) (1 << 15);
+static const I32 I32_MIN = (I32)  1 << 31;
+static const I64 I64_MIN = (I64) (1ll << 63);
+
+static const I8  I8_MAX  = (I8)  ~0 ^ I8_MIN;
+static const I16 I16_MAX = (I16) ~0 ^ I16_MIN;
+static const I32 I32_MAX = (I32) ~0 ^ I32_MIN;
+static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 
 typedef struct ArkinCoreDesc ArkinCoreDesc;
-struct ArkinCoreDesc {
-    void *(*malloc)(U64 size, const char *file, U32 line);
-    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
-    void (*free)(void *ptr, const char *file, U32 line);
-};
+struct ArkinCoreDesc {};
 
 // Initializes global state needed by other arkin function calls.
 // This should be called at the start of a program by the main thread.
@@ -470,6 +477,24 @@ ARKIN_API void _ar_hash_map_get(const ArHashMap *map, const void *key, void *out
 ARKIN_API void * _ar_hash_map_get_ptr(const ArHashMap *map, const void *key);
 
 //
+// Pool allocator
+//
+
+typedef struct ArPool ArPool;
+typedef struct ArPoolHandle ArPoolHandle;
+struct ArPoolHandle {
+    U64 handle;
+};
+
+static const ArPoolHandle AR_POOL_HANDLE_INVALID = {U32_MAX};
+
+ARKIN_API ArPool *ar_pool_init(ArArena *arena, U32 capacity, U64 object_size);
+ARKIN_API ArPoolHandle ar_pool_handle_create(ArPool *pool);
+ARKIN_API void ar_pool_handle_destroy(ArPool *pool, ArPoolHandle handle);
+ARKIN_API B8 ar_pool_handle_valid(const ArPool *pool, ArPoolHandle handle);
+ARKIN_API void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle);
+
+//
 // Platform
 //
 
@@ -521,15 +546,5 @@ ARKIN_API void ar_thread_detatch(ArThread thread);
 
 ARKIN_API void _ar_os_init(void);
 ARKIN_API void _ar_os_terminate(void);
-
-typedef struct _ArkinCoreState _ArkinCoreState;
-struct _ArkinCoreState {
-    void *(*malloc)(U64 size, const char *file, U32 line);
-    void *(*realloc)(void *ptr, U64 size, const char *file, U32 line);
-    void (*free)(void *ptr, const char *file, U32 line);
-
-    ArThreadCtx *thread_ctx;
-};
-extern _ArkinCoreState _ar_core;
 
 #endif

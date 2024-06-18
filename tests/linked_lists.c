@@ -289,9 +289,8 @@ ArTestCaseResult test_sll_queue_pop(void) {
     AR_SUCCESS();
 }
 
-
-ArTestResult test_ll(void) {
-    ArTestState state = ar_test_begin();
+ArTestResult test_ll(ArArena *arena) {
+    ArTestState state = ar_test_begin(arena);
 
     AR_RUN_TEST(&state, test_dll_insert);
     AR_RUN_TEST(&state, test_dll_remove);

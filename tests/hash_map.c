@@ -201,8 +201,8 @@ ArTestCaseResult test_hash_map_get_ptr(void) {
     AR_SUCCESS();
 }
 
-ArTestResult test_hash_map(void) {
-    ArTestState state = ar_test_begin();
+ArTestResult test_hash_map(ArArena *arena) {
+    ArTestState state = ar_test_begin(arena);
 
     AR_RUN_TEST(&state, test_hash_map_insert);
     AR_RUN_TEST(&state, test_hash_map_has);

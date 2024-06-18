@@ -36,13 +36,13 @@ struct ArTest {
 
 typedef struct ArTestState ArTestState;
 struct ArTestState {
-    ArTestCase *end;
-    ArTestCase *cases;
+    ArArena *arena;
+    ArTestCase *first;
+    ArTestCase *last;
 };
 
-ARKIN_API ArTestState ar_test_begin(void);
+ARKIN_API ArTestState ar_test_begin(ArArena *arena);
 ARKIN_API ArTestResult ar_test_end(ArTestState state);
-ARKIN_API void ar_test_result_free(ArTestResult *result);
 
 #define AR_RUN_TEST(STATE, TEST) _ar_run_test(STATE, TEST, #TEST)
 

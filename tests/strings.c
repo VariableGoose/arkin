@@ -296,8 +296,8 @@ ArTestCaseResult test_string_copy(void) {
     AR_SUCCESS();
 }
 
-ArTestResult test_strings(void) {
-    ArTestState state = ar_test_begin();
+ArTestResult test_strings(ArArena *arena) {
+    ArTestState state = ar_test_begin(arena);
 
     AR_RUN_TEST(&state, test_char_helpers);
     AR_RUN_TEST(&state, test_string_match);

@@ -15,18 +15,20 @@ static void check(ArTestResult res) {
             }
         }
     }
-
-    ar_test_result_free(&res);
+    printf("\n");
 }
 
 I32 main(void) {
     arkin_init(&(ArkinCoreDesc) {0});
+    ArArena *arena = ar_arena_create_default();
 
-    check(test_core());
-    check(test_ll());
-    check(test_strings());
-    check(test_hash_map());
+    check(test_core(arena));
+    check(test_ll(arena));
+    check(test_strings(arena));
+    check(test_hash_map(arena));
+    check(test_pool(arena));
 
+    ar_arena_destroy(&arena);
     arkin_terminate();
     return 0;
 }

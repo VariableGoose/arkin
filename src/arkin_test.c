@@ -1,16 +1,18 @@
 #include "arkin_test.h"
 
-ArTestState ar_test_begin(void) {
-    ArTestState state = {0};
+ArTestState ar_test_begin(ArArena *arena) {
+    ArTestState state = {
+        .arena = arena,
+    };
     return state;
 }
 
 ArTestResult ar_test_end(ArTestState state) {
     ArTestResult res = {
-        .cases = state.cases,
+        .cases = state.first,
     };
 
-    for (ArTestCase *c = state.cases; c != NULL; c = c->next) {
+    for (ArTestCase *c = state.first; c != NULL; c = c->next) {
         c->result = c->func();
         if (c->result.passed) {
             res.passed++;
@@ -22,24 +24,12 @@ ArTestResult ar_test_end(ArTestState state) {
     return res;
 }
 
-void ar_test_result_free(ArTestResult *result) {
-    *result = (ArTestResult) {0};
-    AR_FREE(result->cases);
-}
-
 void _ar_run_test(ArTestState *state, ArTestFunc func, const char *name) {
-    ArTestCase *c = AR_MALLOC(sizeof(ArTestCase));
-    *c = (ArTestCase) {
+    ArTestCase *test_case = ar_arena_push_type_no_zero(state->arena, ArTestCase);
+    *test_case = (ArTestCase) {
         .func = func,
         .name = name,
     };
 
-    if (state->cases == NULL) {
-        state->cases = c;
-        state->end = state->cases;
-        return;
-    }
-
-    state->end->next = c;
-    state->end = c;
+    ar_sll_queue_push(state->first, state->last, test_case);
 }

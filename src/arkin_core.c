@@ -5,32 +5,14 @@
 #include <string.h>
 #include <stdarg.h>
 
-_ArkinCoreState _ar_core = {0};
-
-static void *_ar_default_malloc(U64 size, const char *file, U32 line) {
-    (void) file;
-    (void) line;
-    return malloc(size);
-}
-
-static void *_ar_default_realloc(void *ptr, U64 size, const char *file, U32 line) {
-    (void) file;
-    (void) line;
-    return realloc(ptr, size);
-}
-
-static void _ar_default_free(void *ptr, const char *file, U32 line) {
-    (void) file;
-    (void) line;
-    return free(ptr);
-}
+typedef struct _ArkinCoreState _ArkinCoreState;
+struct _ArkinCoreState {
+    ArThreadCtx *thread_ctx;
+};
+static _ArkinCoreState _ar_core = {0};
 
 void arkin_init(const ArkinCoreDesc *desc) {
     _ar_os_init();
-
-    _ar_core.malloc  = desc->malloc  == NULL ? _ar_default_malloc  : desc->malloc;
-    _ar_core.realloc = desc->realloc == NULL ? _ar_default_realloc : desc->realloc;
-    _ar_core.free    = desc->free    == NULL ? _ar_default_free    : desc->free;
 
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
@@ -633,6 +615,99 @@ ArArena *ar_hash_map_get_arena(const ArHashMap *map) {
 }
 
 //
+// Pool allocator
+//
+
+// [64-bit handle]: [32-bit generation][32-bit index]
+
+typedef struct ArPoolFreeObject ArPoolFreeObject;
+struct ArPoolFreeObject {
+    ArPoolFreeObject *next;
+    U32 index;
+};
+
+struct ArPool {
+    void *pool;
+    U32 *generation;
+    B8 *used;
+    U32 *free_list;
+    U32 free_list_next;
+    U32 next_index;
+    U64 object_size;
+    U32 capacity;
+};
+
+ArPool *ar_pool_init(ArArena *arena, U32 capacity, U64 object_size) {
+    ArPool *pool = ar_arena_push_type_no_zero(arena, ArPool);
+    *pool = (ArPool) {
+        .pool = ar_arena_push_no_zero(arena, object_size * capacity),
+        .generation = ar_arena_push_arr(arena, U32, capacity),
+        .used = ar_arena_push_arr(arena, B8, capacity),
+        .free_list = ar_arena_push_arr(arena, U32, capacity),
+        .object_size = object_size,
+        .capacity = capacity,
+    };
+
+    return pool;
+}
+
+ArPoolHandle ar_pool_handle_create(ArPool *pool) {
+    // Out of space.
+    if (pool->free_list_next == 0 && pool->next_index == pool->capacity) {
+        return AR_POOL_HANDLE_INVALID;
+    }
+
+    U32 index = pool->next_index;
+    if (pool->free_list_next != 0) {
+        index = pool->free_list[pool->free_list_next - 1];
+        pool->free_list_next--;
+    } else {
+        pool->next_index++;
+    }
+
+    pool->used[index] = true;
+    U32 generation = pool->generation[index];
+    memset(pool->pool + index * pool->object_size, 0, pool->object_size);
+
+    return (ArPoolHandle) {
+        .handle = ((U64) generation) << 32 | index,
+    };
+}
+
+void ar_pool_handle_destroy(ArPool *pool, ArPoolHandle handle) {
+    if (!ar_pool_handle_valid(pool, handle)) {
+        return;
+    }
+
+    U32 generation = (U32) (handle.handle >> 32);
+    U32 index = (U32) handle.handle;
+
+    pool->used[index] = false;
+    pool->generation[index]++;
+    pool->free_list[pool->free_list_next] = index;
+    pool->free_list_next++;
+}
+
+B8 ar_pool_handle_valid(const ArPool *pool, ArPoolHandle handle) {
+    U32 generation = (U32) (handle.handle >> 32);
+    U32 index = (U32) handle.handle;
+
+    return handle.handle != AR_POOL_HANDLE_INVALID.handle &&
+        index < pool->next_index &&
+        generation == pool->generation[index] &&
+        pool->used[index];
+}
+
+void *ar_pool_handle_to_ptr(const ArPool *pool, ArPoolHandle handle) {
+    if (!ar_pool_handle_valid(pool, handle)) {
+        return NULL;
+    }
+
+    U32 index = (U32) handle.handle;
+    return pool->pool + index * pool->object_size;
+}
+
+//
 // Platform
 //
 
@@ -738,6 +813,7 @@ void ar_os_mem_release(void *ptr) {
     munmap(info, info->size);
 }
 
+// TODO: Remove malloc and free call by having the OS layer handle thread info in a pool.
 typedef struct _ArThreadArgs _ArThreadArgs;
 struct _ArThreadArgs {
     ArThreadFunc func;
@@ -752,7 +828,7 @@ static void *_ar_os_thread_entry(void *args) {
     _args->func(_args->args);
     ar_thread_ctx_destroy(&thread_ctx);
 
-    AR_FREE(_args);
+    free(_args);
 
     return NULL;
 }
@@ -762,7 +838,7 @@ static void *_ar_os_thread_entry_no_ctx(void *args) {
 
     _args->func(_args->args);
 
-    AR_FREE(_args);
+    free(_args);
 
     return NULL;
 }
@@ -770,11 +846,16 @@ static void *_ar_os_thread_entry_no_ctx(void *args) {
 ArThread ar_thread_start(ArThreadFunc func, void *args) {
     ArThread thread = {0};
 
-    _ArThreadArgs *targs = AR_MALLOC(sizeof(_ArThreadArgs));
+    _ArThreadArgs *targs = malloc(sizeof(_ArThreadArgs));
     *targs = (_ArThreadArgs) {
         .func = func,
         .args = args,
     };
+
+    // thread_args = (_ArThreadArgs) {
+    //     .func = func,
+    //     .args = args,
+    // };
 
     pthread_t handle;
     pthread_create(&handle, NULL, _ar_os_thread_entry, targs);
@@ -786,7 +867,7 @@ ArThread ar_thread_start(ArThreadFunc func, void *args) {
 ArThread ar_thread_start_no_ctx(ArThreadFunc func, void *args) {
     ArThread thread = {0};
 
-    _ArThreadArgs *targs = AR_MALLOC(sizeof(_ArThreadArgs));
+    _ArThreadArgs *targs = malloc(sizeof(_ArThreadArgs));
     *targs = (_ArThreadArgs) {
         .func = func,
         .args = args,

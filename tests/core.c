@@ -67,8 +67,8 @@ ArTestCaseResult test_page_size(void) {
     AR_ASSERT_MSG(false, "OS not supported.");
 }
 
-ArTestResult test_core(void) {
-    ArTestState state = ar_test_begin();
+ArTestResult test_core(ArArena *arena) {
+    ArTestState state = ar_test_begin(arena);
 
     AR_RUN_TEST(&state, test_offsetof);
     AR_RUN_TEST(&state, test_arrlen);
