@@ -33,7 +33,7 @@ ArTestCaseResult test_pool_max_capacity(void) {
     ar_pool_handle_create(pool);
 
     ArPoolHandle handle = ar_pool_handle_create(pool);
-    AR_ASSERT(handle.handle == U32_MAX);
+    AR_ASSERT(handle.handle == U64_MAX);
     AR_ASSERT(!ar_pool_handle_valid(pool, handle));
 
     ar_scratch_release(&scratch);

@@ -44,10 +44,12 @@ typedef void (*ArLogCallback)(ArLogEvent event, void *userdata);
 #define ar_debug(msg, ...) _ar_log(AL_LOG_LEVEL_DEBUG, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 #define ar_trace(msg, ...) _ar_log(AL_LOG_LEVEL_TRACE, __FILE__, __LINE__, msg, ##__VA_ARGS__)
 
-ARKIN_API void ar_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata);
-ARKIN_API void ar_add_fp(ArLogLevel level, FILE *fp);
-ARKIN_API void ar_set_no_stdout(B8 value);
-ARKIN_API void ar_set_no_stdout_color(B8 value);
+ARKIN_API void ar_log_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata);
+ARKIN_API void ar_log_add_fp(ArLogLevel level, FILE *fp);
+ARKIN_API void ar_log_set_no_stdout(B8 value);
+ARKIN_API void ar_log_set_no_stdout_color(B8 value);
+
+ARKIN_API void ar_log_message_callback(ArStr message, ArMessageLevel level);
 
 ARKIN_API void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...) AR_FORMAT_FUNCTION(4, 5);
 

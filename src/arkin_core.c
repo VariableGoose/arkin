@@ -1,5 +1,4 @@
 #include "arkin_core.h"
-#include "arkin_log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +11,23 @@ static void _ar_os_terminate(void);
 typedef struct _ArkinCoreState _ArkinCoreState;
 struct _ArkinCoreState {
     ArThreadCtx *thread_ctx;
+    struct {
+        void (*callback)(ArStr message, ArMessageLevel level);
+        ArMessageLevel level;
+    } messaging;
 };
 static _ArkinCoreState _ar_core = {0};
+
+static void _ar_message_callback_dummy(ArStr message, ArMessageLevel level) {
+    (void) message;
+    (void) level;
+}
+
+static void _ar_message(ArStr message, ArMessageLevel level) {
+    if (level & _ar_core.messaging.level) {
+        _ar_core.messaging.callback(message, level);
+    }
+}
 
 void arkin_init(const ArkinCoreDesc *desc) {
     ArkinCoreDesc _desc = *desc;
@@ -24,10 +38,20 @@ void arkin_init(const ArkinCoreDesc *desc) {
         _desc.mutex_pool_capacity = 256;
     }
 
+    if (desc->messaging.callback == 0) {
+        _desc.messaging.callback = _ar_message_callback_dummy;
+    }
+    if (desc->messaging.level == 0) {
+        _desc.messaging.level = AR_MESSAGE_LEVEL_IMPORTANT;
+    }
+
     _ar_os_init(_desc.thread_pool_capacity, _desc.mutex_pool_capacity);
 
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
+
+    _ar_core.messaging.callback = _desc.messaging.callback;
+    _ar_core.messaging.level = _desc.messaging.level;
 }
 
 void arkin_terminate(void) {
@@ -804,7 +828,7 @@ static void _ar_os_init(U32 thread_pool_cap, U32 mutex_pool_cap) {
     ArArena *arena = ar_arena_create_default();
     _ar_os_state.os_arena = arena;
 
-    _ar_os_state.mutex_pool = ar_pool_init(arena, mutex_pool_cap, sizeof(_ArOsMutex));
+    _ar_os_state.mutex_pool = ar_pool_init(arena, mutex_pool_cap + 2, sizeof(_ArOsMutex));
     _ar_os_state.thread_pool = ar_pool_init(arena, thread_pool_cap, sizeof(_ArOsThread));
 
     _ar_os_state.mutex_pool_mutex = ar_mutex_create();
@@ -911,6 +935,7 @@ ArThread ar_thread_create(ArThreadFunc func, void *args) {
 
     _ArOsThread *thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, handle.handle);
     if (thread == NULL) {
+        _ar_message(ar_str_lit("Thread pool out of threads. Increase 'thread_pool_capacity' when calling arkin_init() to get rid of this warning."), AR_MESSAGE_LEVEL_WARN);
         return handle;
     }
 
@@ -975,6 +1000,7 @@ ArMutex ar_mutex_create(void) {
 
     _ArOsMutex *mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, handle.handle);
     if (mutex == NULL) {
+        _ar_message(ar_str_lit("Mutex pool out of mutexes. Increase 'mutex_pool_capacity' when calling arkin_init() to get rid of this warning."), AR_MESSAGE_LEVEL_WARN);
         return handle;
     }
 

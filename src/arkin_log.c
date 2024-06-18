@@ -1,4 +1,5 @@
 #include "arkin_log.h"
+#include "arkin_core.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -77,26 +78,47 @@ void _ar_log(ArLogLevel level, const char *file, U32 line, const char *fmt, ...)
     }
 }
 
-void ar_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata) {
+void ar_log_add_callback(ArLogCallback callback, ArLogLevel level, void *userdata) {
     _ar_state.callbacks[_ar_state.callback_count].func = callback;
     _ar_state.callbacks[_ar_state.callback_count].level = level;
     _ar_state.callbacks[_ar_state.callback_count].userdata = userdata;
     _ar_state.callback_count++;
 }
 
-static void _ar_file_callback(ArLogEvent event, void *userdata) {
+static void _ar_log_file_callback(ArLogEvent event, void *userdata) {
     FILE *fp = userdata;
     fprintf(fp, "%s\n", event.message);
 }
 
-void ar_add_fp(ArLogLevel level, FILE *fp) {
-    ar_add_callback(_ar_file_callback, level, fp);
+void ar_log_add_fp(ArLogLevel level, FILE *fp) {
+    ar_log_add_callback(_ar_log_file_callback, level, fp);
 }
 
-void ar_set_no_stdout(B8 value) {
+void ar_log_set_no_stdout(B8 value) {
     _ar_state.no_stdout = value;
 }
 
-void ar_set_no_stdout_color(B8 value) {
+void ar_log_set_no_stdout_color(B8 value) {
     _ar_state.no_stdout_color = value;
+}
+
+void ar_log_message_callback(ArStr message, ArMessageLevel level) {
+    switch (level) {
+        case AR_MESSAGE_LEVEL_FATAL:
+            ar_fatal("%.*s", (I32) message.len, message.data);
+            break;
+        case AR_MESSAGE_LEVEL_WARN:
+            ar_warn("%.*s", (I32) message.len, message.data);
+            break;
+        case AR_MESSAGE_LEVEL_INFO:
+            ar_debug("%.*s", (I32) message.len, message.data);
+            break;
+        case AR_MESSAGE_LEVEL_DEBUG:
+            ar_debug("%.*s", (I32) message.len, message.data);
+            break;
+        default:
+            ar_trace("Unknown message level: %d", level);
+            ar_trace("Message: '%.*s'", (I32) message.len, message.data);
+            break;
+    }
 }

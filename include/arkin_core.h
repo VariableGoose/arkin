@@ -115,10 +115,32 @@ static const I16 I16_MAX = (I16) ~0 ^ I16_MIN;
 static const I32 I32_MAX = (I32) ~0 ^ I32_MIN;
 static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 
+typedef struct ArStr ArStr;
+
+typedef enum {
+    AR_MESSAGE_LEVEL_FATAL = 1 << 0,
+    AR_MESSAGE_LEVEL_WARN = 1 << 1,
+    AR_MESSAGE_LEVEL_INFO = 1 << 2,
+    AR_MESSAGE_LEVEL_DEBUG = 1 << 3,
+
+    AR_MESSAGE_LEVEL_ALL = AR_MESSAGE_LEVEL_FATAL |
+        AR_MESSAGE_LEVEL_WARN |
+        AR_MESSAGE_LEVEL_INFO |
+        AR_MESSAGE_LEVEL_DEBUG,
+
+    AR_MESSAGE_LEVEL_IMPORTANT = AR_MESSAGE_LEVEL_FATAL |
+        AR_MESSAGE_LEVEL_WARN |
+        AR_MESSAGE_LEVEL_INFO,
+} ArMessageLevel;
+
 typedef struct ArkinCoreDesc ArkinCoreDesc;
 struct ArkinCoreDesc {
     U32 thread_pool_capacity;
     U32 mutex_pool_capacity;
+    struct {
+        void (*callback)(ArStr message, ArMessageLevel level);
+        ArMessageLevel level;
+    } messaging;
 };
 
 // Initializes global state needed by other arkin function calls.
@@ -305,7 +327,6 @@ ARKIN_API char ar_char_to_upper(char c);
 // No operation shall change the data of the string, instead producing a new
 // one.
 
-typedef struct ArStr ArStr;
 struct ArStr {
     U64 len;
     const U8 *data;
