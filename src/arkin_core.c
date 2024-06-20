@@ -929,6 +929,8 @@ static void *_ar_os_thread_entry_no_ctx(void *args) {
 }
 
 ArThread ar_thread_create(ArThreadFunc func, void *args) {
+    ar_mutex_lock(_ar_os_state.thread_pool_mutex);
+    
     ArThread handle = {
         .handle = ar_pool_handle_create(_ar_os_state.thread_pool),
     };
@@ -944,10 +946,15 @@ ArThread ar_thread_create(ArThreadFunc func, void *args) {
 
     pthread_create(&thread->thread_id, NULL, _ar_os_thread_entry, thread);
 
+    ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
+
     return handle;
 }
 
 ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args) {
+    ar_mutex_lock(_ar_os_state.thread_pool_mutex);
+
+
     ArThread handle = {
         .handle = ar_pool_handle_create(_ar_os_state.thread_pool),
     };
@@ -958,7 +965,15 @@ ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args) {
 
     pthread_create(&thread->thread_id, NULL, _ar_os_thread_entry_no_ctx, thread);
 
+    ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
+
     return handle;
+}
+
+void ar_thread_destroy(ArThread thread) {
+    ar_mutex_lock(_ar_os_state.thread_pool_mutex);
+    ar_pool_handle_destroy(_ar_os_state.thread_pool, thread.handle);
+    ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
 }
 
 void ar_thread_join(ArThread thread) {
@@ -983,8 +998,8 @@ void ar_thread_detatch(ArThread thread) {
     ar_thread_destroy(thread);
 }
 
-void ar_thread_destroy(ArThread thread) {
-    ar_pool_handle_destroy(_ar_os_state.thread_pool, thread.handle);
+B8 ar_thread_valid(ArThread thread) {
+    return ar_pool_handle_valid(_ar_os_state.thread_pool, thread.handle);
 }
 
 //
@@ -1042,6 +1057,10 @@ void ar_mutex_unlock(ArMutex mutex) {
     }
 
     pthread_mutex_unlock(&os_mutex->pmutex);
+}
+
+B8 ar_mutex_valid(ArMutex mutex) {
+    return ar_pool_handle_valid(_ar_os_state.mutex_pool, mutex.handle);
 }
 
 #endif

@@ -575,6 +575,7 @@ ARKIN_API void ar_thread_destroy(ArThread thread);
 ARKIN_API void ar_thread_join(ArThread thread);
 // Detaches thread from program. Destroys the thread. Don't call ar_thread_destroy after calling this function.
 ARKIN_API void ar_thread_detatch(ArThread thread);
+ARKIN_API B8 ar_thread_valid(ArThread thread);
 
 //
 // Mutexes
@@ -589,5 +590,6 @@ ARKIN_API ArMutex ar_mutex_create(void);
 ARKIN_API void ar_mutex_destroy(ArMutex mutex);
 ARKIN_API void ar_mutex_lock(ArMutex mutex);
 ARKIN_API void ar_mutex_unlock(ArMutex mutex);
+ARKIN_API B8 ar_mutex_valid(ArMutex mutex);
 
 #endif
