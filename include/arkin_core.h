@@ -527,6 +527,7 @@ ARKIN_API ArPoolHandle ar_pool_iter_next(const ArPool *pool, ArPoolHandle iter);
 //
 
 ARKIN_API F64 ar_os_get_time(void);
+ARKIN_API U64 ar_os_get_time_microseconds(void);
 ARKIN_API U32 ar_os_page_size(void);
 
 // Reserves 'size', aligned upwards to the next page boundy, of memory

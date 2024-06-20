@@ -803,7 +803,10 @@ struct _ArOsMutex {
 
 typedef struct _ArOsState _ArOsState;
 struct _ArOsState {
-    F64 start_time;
+    struct {
+        U32 seconds;
+        U32 microseconds;
+    } start_time;
     U32 page_size;
 
     ArArena *os_arena;
@@ -821,7 +824,8 @@ static void _ar_os_init(U32 thread_pool_cap, U32 mutex_pool_cap) {
 
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    _ar_os_state.start_time = ts.tv_sec + ts.tv_nsec * 1e-9,
+    _ar_os_state.start_time.seconds = ts.tv_sec;
+    _ar_os_state.start_time.microseconds = ts.tv_nsec / 1000;
 
     _ar_os_state.page_size = sysconf(_SC_PAGE_SIZE);
 
@@ -849,7 +853,14 @@ F64 ar_os_get_time(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
 
-    return (ts.tv_sec + ts.tv_nsec * 1e-9) - _ar_os_state.start_time;
+    return (ts.tv_sec + ts.tv_nsec * 1e-9) - (_ar_os_state.start_time.seconds + _ar_os_state.start_time.microseconds * 1e-6);
+}
+
+U64 ar_os_get_time_microseconds(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+
+    return ((ts.tv_sec - _ar_os_state.start_time.seconds) * 1000000 + (ts.tv_nsec / 1000) - _ar_os_state.start_time.microseconds);
 }
 
 U32 ar_os_page_size(void) {
