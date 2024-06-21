@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 static void _ar_os_init(U32 thread_pool_cap, U32 mutex_pool_cap);
 static void _ar_os_terminate(void);
@@ -11,10 +12,16 @@ static void _ar_os_terminate(void);
 typedef struct _ArkinCoreState _ArkinCoreState;
 struct _ArkinCoreState {
     ArThreadCtx *thread_ctx;
+
     struct {
         void (*callback)(ArStr message, ArMessageLevel level);
         ArMessageLevel level;
     } messaging;
+
+    struct {
+        U64 default_capacity;
+        U64 default_align;
+    } arena;
 };
 static _ArkinCoreState _ar_core = {0};
 
@@ -45,6 +52,17 @@ void arkin_init(const ArkinCoreDesc *desc) {
         _desc.messaging.level = AR_MESSAGE_LEVEL_IMPORTANT;
     }
 
+    if (desc->arena.default_capacity == 0) {
+        // 4 GiB
+        _desc.arena.default_capacity = 4 * 1llu << 30;
+    }
+    if (desc->arena.default_align == 0) {
+        _desc.arena.default_align = sizeof(ptrdiff_t);
+    }
+
+    _ar_core.arena.default_capacity = _desc.arena.default_capacity;
+    _ar_core.arena.default_align = _desc.arena.default_align;
+
     _ar_os_init(_desc.thread_pool_capacity, _desc.mutex_pool_capacity);
 
     _ar_core.thread_ctx = ar_thread_ctx_create();
@@ -65,15 +83,16 @@ void arkin_terminate(void) {
 // Arena
 //
 
-static U64 align_to_page_size(U64 value) {
-    U64 page_size = ar_os_page_size();
-    return value + (page_size - value) % page_size;
+// Rounds value up to the nearest multiple of align.
+static U64 align_to_value(U64 value, U64 align) {
+    return value + (align - value) % align;
 }
 
 struct ArArena {
     U64 capacity;
     U64 commited;
     U64 position;
+    U64 align;
     U8 *ptr;
 };
 
@@ -84,14 +103,19 @@ ArArena *ar_arena_create(U64 capacity) {
         .capacity = capacity,
         .commited = ar_os_page_size(),
         .position = 0,
+        .align = _ar_core.arena.default_align,
         .ptr = (U8 *) &arena[1],
     };
 
     return arena;
 }
 
+void ar_arena_set_align(ArArena *arena, U64 align) {
+    arena->align = align;
+}
+
 ArArena *ar_arena_create_default(void) {
-    return ar_arena_create(4 * 1llu << 30);
+    return ar_arena_create(_ar_core.arena.default_capacity);
 }
 
 void ar_arena_destroy(ArArena **arena) {
@@ -100,17 +124,19 @@ void ar_arena_destroy(ArArena **arena) {
 }
 
 void *ar_arena_push(ArArena *arena, U64 size) {
+    U64 aligned_size = align_to_value(size, arena->align);
     void *result = ar_arena_push_no_zero(arena, size);
-    memset(result, 0, size);
+    memset(result, 0, aligned_size);
     return result;
 }
 
 void *ar_arena_push_no_zero(ArArena *arena, U64 size) {
     void *result = arena->ptr + arena->position;
 
-    arena->position += size;
+    U64 aligned_size = align_to_value(size, arena->align);
+    arena->position += aligned_size;
 
-    U64 aligned = align_to_page_size(arena->position);
+    U64 aligned = align_to_value(arena->position, ar_os_page_size());
     if (aligned > arena->commited) {
         ar_os_mem_commit(arena, aligned);
         arena->commited = aligned;
@@ -120,13 +146,15 @@ void *ar_arena_push_no_zero(ArArena *arena, U64 size) {
 }
 
 void ar_arena_pop(ArArena *arena, U64 size) {
-    if (size > arena->position) {
-        size = arena->position;
+    U64 aligned_size = align_to_value(size, arena->align);
+
+    if (aligned_size > arena->position) {
+        aligned_size = arena->position;
     }
 
-    arena->position -= size;
+    arena->position -= aligned_size;
 
-    U64 aligned = align_to_page_size(arena->position);
+    U64 aligned = align_to_value(arena->position, ar_os_page_size());
     if (aligned < arena->commited && aligned != 0) {
         ar_os_mem_decommit(arena, arena->commited - aligned);
         arena->commited = aligned;
@@ -869,7 +897,7 @@ U32 ar_os_page_size(void) {
 
 void *ar_os_mem_reserve(U64 size) {
     U32 page_size = ar_os_page_size();
-    size = align_to_page_size(size + sizeof(_ArOsAllocInfo));
+    size = align_to_value(size + sizeof(_ArOsAllocInfo), ar_os_page_size());
 
     _ArOsAllocInfo *info = mmap(NULL, size + sizeof(_ArOsAllocInfo), PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
     madvise((U8 *) info + page_size, size - page_size, MADV_DONTNEED);
@@ -884,7 +912,7 @@ void *ar_os_mem_reserve(U64 size) {
 void ar_os_mem_commit(void *ptr, U64 size) {
     _ArOsAllocInfo *info = &((_ArOsAllocInfo *) ptr)[-1];
     info->requested_commited += size;
-    U64 requested = align_to_page_size(info->requested_commited);
+    U64 requested = align_to_value(info->requested_commited, ar_os_page_size());
     if (requested > info->commited) {
         info->commited = requested;
         mprotect(info, info->commited, PROT_READ | PROT_WRITE);
@@ -903,7 +931,7 @@ void ar_os_mem_decommit(void *ptr, U64 size) {
         info->requested_commited = sizeof(_ArOsAllocInfo);
     }
 
-    U64 requested = align_to_page_size(info->requested_commited);
+    U64 requested = align_to_value(info->requested_commited, ar_os_page_size());
     if (requested < info->commited) {
         mprotect((U8 *) ptr + requested, info->commited - requested, PROT_NONE);
         info->commited = requested;

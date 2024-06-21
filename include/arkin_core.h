@@ -137,10 +137,16 @@ typedef struct ArkinCoreDesc ArkinCoreDesc;
 struct ArkinCoreDesc {
     U32 thread_pool_capacity;
     U32 mutex_pool_capacity;
+
     struct {
         void (*callback)(ArStr message, ArMessageLevel level);
         ArMessageLevel level;
     } messaging;
+
+    struct {
+        U64 default_capacity;
+        U64 default_align;
+    } arena;
 };
 
 // Initializes global state needed by other arkin function calls.
@@ -163,6 +169,8 @@ ARKIN_API ArArena *ar_arena_create(U64 capacity);
 // Uses a default capacity of 4 GiB. (4 * 1 << 30).
 ARKIN_API ArArena *ar_arena_create_default(void);
 ARKIN_API void ar_arena_destroy(ArArena **arena);
+
+ARKIN_API void ar_arena_set_align(ArArena *arena, U64 align);
 
 // Returns a zero initialized region of memory.
 ARKIN_API void *ar_arena_push(ArArena *arena, U64 size);
