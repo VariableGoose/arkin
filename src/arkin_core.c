@@ -107,6 +107,11 @@ ArArena *ar_arena_create(U64 capacity) {
         .ptr = (U8 *) &arena[1],
     };
 
+#ifdef ARKIN_SANITIZE_ADDRESSES
+    AR_ASAN_POISON_MEMORY_REGION(arena->ptr, capacity);
+    arena->position += arena->align;
+#endif
+
     return arena;
 }
 
@@ -119,14 +124,16 @@ ArArena *ar_arena_create_default(void) {
 }
 
 void ar_arena_destroy(ArArena **arena) {
+#ifdef ARKIN_SANITIZE_ADDRESSES
+    AR_ASAN_UNPOISON_MEMORY_REGION((*arena)->ptr, (*arena)->capacity);
+#endif
     ar_os_mem_release(*arena);
     *arena = NULL;
 }
 
 void *ar_arena_push(ArArena *arena, U64 size) {
-    U64 aligned_size = align_to_value(size, arena->align);
     void *result = ar_arena_push_no_zero(arena, size);
-    memset(result, 0, aligned_size);
+    memset(result, 0, size);
     return result;
 }
 
@@ -135,6 +142,11 @@ void *ar_arena_push_no_zero(ArArena *arena, U64 size) {
 
     U64 aligned_size = align_to_value(size, arena->align);
     arena->position += aligned_size;
+
+#ifdef ARKIN_SANITIZE_ADDRESSES
+    AR_ASAN_UNPOISON_MEMORY_REGION(result, size);
+    arena->position += arena->align;
+#endif
 
     U64 aligned = align_to_value(arena->position, ar_os_page_size());
     if (aligned > arena->commited) {
@@ -148,11 +160,16 @@ void *ar_arena_push_no_zero(ArArena *arena, U64 size) {
 void ar_arena_pop(ArArena *arena, U64 size) {
     U64 aligned_size = align_to_value(size, arena->align);
 
+
     if (aligned_size > arena->position) {
         aligned_size = arena->position;
     }
 
     arena->position -= aligned_size;
+
+#ifdef ARKIN_SANITIZE_ADDRESSES
+    AR_ASAN_POISON_MEMORY_REGION(arena->ptr + arena->position, aligned_size);
+#endif
 
     U64 aligned = align_to_value(arena->position, ar_os_page_size());
     if (aligned < arena->commited && aligned != 0) {
@@ -743,7 +760,6 @@ void ar_pool_handle_destroy(ArPool *pool, ArPoolHandle handle) {
         return;
     }
 
-    U32 generation = (U32) (handle.handle >> 32);
     U32 index = (U32) handle.handle;
 
     pool->used[index] = false;

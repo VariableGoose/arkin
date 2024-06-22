@@ -52,6 +52,20 @@
 #define RE_FORMAT_FUNCTION(FORMAT_INDEX, VA_INDEX)
 #endif
 
+// https://github.com/google/sanitizers/wiki/AddressSanitizerManualPoisoning
+#if defined(ARKIN_SANITIZE_ADDRESSES) && __has_feature(address_sanitizer) || defined(__SANITIZE_ADDRESS__)
+#include <sanitizer/asan_interface.h>
+#define AR_ASAN_POISON_MEMORY_REGION(addr, size) \
+  __asan_poison_memory_region((addr), (size))
+#define AR_ASAN_UNPOISON_MEMORY_REGION(addr, size) \
+  __asan_unpoison_memory_region((addr), (size))
+#else
+#define AR_ASAN_POISON_MEMORY_REGION(addr, size) \
+  ((void)(addr), (void)(size))
+#define AR_ASAN_UNPOISON_MEMORY_REGION(addr, size) \
+  ((void)(addr), (void)(size))
+#endif
+
 // Unsigned 8-bit integer.
 typedef unsigned char      U8;
 // Unsigned 16-bit integer.
@@ -365,8 +379,7 @@ struct ArStrList {
     ArStrListNode *last;
 };
 
-const static ArStrList AR_STR_LIST_INIT = {0};
-
+static const ArStrList AR_STR_LIST_INIT = {0};
 
 // Pushes string into the back of the string list.
 ARKIN_API void ar_str_list_push(ArArena *arena, ArStrList *list, ArStr str);
