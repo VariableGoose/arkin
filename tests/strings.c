@@ -2,6 +2,7 @@
 #include "arkin_log.h"
 #include "arkin_test.h"
 #include "test.h"
+#include <stdarg.h>
 
 ArTestCaseResult test_char_helpers(void) {
     AR_ASSERT(ar_char_to_lower('a') == 'a');
@@ -274,10 +275,21 @@ ArTestCaseResult test_string_trim(void) {
     AR_SUCCESS();
 }
 
+static ArStr format_func(ArArena *arena, const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    ArStr format = ar_str_pushfv(arena, fmt, args);
+    va_end(args);
+    return format;
+}
+
 ArTestCaseResult test_string_format(void) {
     ArTemp scratch = ar_scratch_get(NULL, 0);
 
-    ArStr format = ar_str_format(scratch.arena, "foo%d", 42);
+    ArStr format = format_func(scratch.arena, "foo%d", 42);
+    AR_ASSERT(ar_str_match(format, ar_str_lit("foo42"), 0));
+
+    format = ar_str_pushf(scratch.arena, "foo%d", 42);
     AR_ASSERT(ar_str_match(format, ar_str_lit("foo42"), 0));
 
     ar_scratch_release(&scratch);

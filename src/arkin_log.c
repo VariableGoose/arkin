@@ -102,23 +102,6 @@ void ar_log_set_no_stdout_color(B8 value) {
     _ar_state.no_stdout_color = value;
 }
 
-void ar_log_message_callback(ArStr message, ArMessageLevel level) {
-    switch (level) {
-        case AR_MESSAGE_LEVEL_FATAL:
-            ar_fatal("%.*s", (I32) message.len, message.data);
-            break;
-        case AR_MESSAGE_LEVEL_WARN:
-            ar_warn("%.*s", (I32) message.len, message.data);
-            break;
-        case AR_MESSAGE_LEVEL_INFO:
-            ar_debug("%.*s", (I32) message.len, message.data);
-            break;
-        case AR_MESSAGE_LEVEL_DEBUG:
-            ar_debug("%.*s", (I32) message.len, message.data);
-            break;
-        default:
-            ar_trace("Unknown message level: %d", level);
-            ar_trace("Message: '%.*s'", (I32) message.len, message.data);
-            break;
-    }
+void ar_log_error_callback(ArStr error) {
+    ar_error("%.*s", (I32) error.len, error.data);
 }

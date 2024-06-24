@@ -1,7 +1,8 @@
 #ifndef ARKIN_CORE_H
 #define ARKIN_CORE_H
 
-#include <string.h> // strlen
+#include <string.h>
+#include <stdarg.h>
 
 #ifdef __linux__
 #define ARKIN_OS_LINUX
@@ -131,31 +132,14 @@ static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 
 typedef struct ArStr ArStr;
 
-typedef enum {
-    AR_MESSAGE_LEVEL_FATAL = 1 << 0,
-    AR_MESSAGE_LEVEL_WARN = 1 << 1,
-    AR_MESSAGE_LEVEL_INFO = 1 << 2,
-    AR_MESSAGE_LEVEL_DEBUG = 1 << 3,
-
-    AR_MESSAGE_LEVEL_ALL = AR_MESSAGE_LEVEL_FATAL |
-        AR_MESSAGE_LEVEL_WARN |
-        AR_MESSAGE_LEVEL_INFO |
-        AR_MESSAGE_LEVEL_DEBUG,
-
-    AR_MESSAGE_LEVEL_IMPORTANT = AR_MESSAGE_LEVEL_FATAL |
-        AR_MESSAGE_LEVEL_WARN |
-        AR_MESSAGE_LEVEL_INFO,
-} ArMessageLevel;
-
 typedef struct ArkinCoreDesc ArkinCoreDesc;
 struct ArkinCoreDesc {
     U32 thread_pool_capacity;
     U32 mutex_pool_capacity;
 
     struct {
-        void (*callback)(ArStr message, ArMessageLevel level);
-        ArMessageLevel level;
-    } messaging;
+        void (*callback)(ArStr error);
+    } error;
 
     struct {
         U64 default_capacity;
@@ -397,7 +381,8 @@ ARKIN_API ArStr ar_str_list_join(ArArena *arena, ArStrList list);
 #define ar_str_cstr(str) (ArStr) { strlen(str), (const U8 *) str }
 #define ar_str(str, len) (ArStr) { len, str }
 
-ARKIN_API ArStr ar_str_format(ArArena *arena, const char *fmt, ...) AR_FORMAT_FUNCTION(2, 3);
+ARKIN_API ArStr ar_str_pushf(ArArena *arena, const char *fmt, ...) AR_FORMAT_FUNCTION(2, 3);
+ARKIN_API ArStr ar_str_pushfv(ArArena *arena, const char *fmt, va_list args);
 ARKIN_API ArStr ar_str_push_copy(ArArena *arena, ArStr str);
 
 // If sloppy length is specified, smallest length will be used to match.
@@ -544,6 +529,33 @@ ARKIN_API B8 ar_pool_iter_valid(const ArPool *pool, ArPoolHandle iter);
 ARKIN_API ArPoolHandle ar_pool_iter_next(const ArPool *pool, ArPoolHandle iter);
 
 //
+// Error handling
+//
+
+//
+// Thread local error handling.
+// If a thread doesn't have a thread contxt this won't work.
+//
+
+typedef enum {
+    AR_ERR_ACCUM_TYPE_IGNORE,
+    AR_ERR_ACCUM_TYPE_FIRST,
+    AR_ERR_ACCUM_TYPE_STACK,
+} ArErrAccumType;
+
+typedef struct ArErr ArErr;
+struct ArErr {
+    ArErr *next;
+    ArStr str;
+};
+
+ARKIN_API void ar_err_accum_begin(ArErrAccumType type);
+ARKIN_API ArErr *ar_err_accum_end(ArArena *arena);
+
+ARKIN_API void ar_err_emit(ArStr str);
+ARKIN_API void ar_err_emitf(const char *fmt, ...);
+
+//
 // Platform
 //
 
@@ -596,7 +608,7 @@ ARKIN_API void ar_thread_destroy(ArThread thread);
 // Waits for the thread to finish. Destroys the thread. Don't call ar_thread_destroy after calling this function.
 ARKIN_API void ar_thread_join(ArThread thread);
 // Detaches thread from program. Destroys the thread. Don't call ar_thread_destroy after calling this function.
-ARKIN_API void ar_thread_detatch(ArThread thread);
+ARKIN_API void ar_thread_detach(ArThread thread);
 ARKIN_API B8 ar_thread_valid(ArThread thread);
 
 //

@@ -14,9 +14,8 @@ struct _ArkinCoreState {
     ArThreadCtx *thread_ctx;
 
     struct {
-        void (*callback)(ArStr message, ArMessageLevel level);
-        ArMessageLevel level;
-    } messaging;
+        void (*callback)(ArStr error);
+    } error;
 
     struct {
         U64 default_capacity;
@@ -25,15 +24,8 @@ struct _ArkinCoreState {
 };
 static _ArkinCoreState _ar_core = {0};
 
-static void _ar_message_callback_dummy(ArStr message, ArMessageLevel level) {
-    (void) message;
-    (void) level;
-}
-
-static void _ar_message(ArStr message, ArMessageLevel level) {
-    if (level & _ar_core.messaging.level) {
-        _ar_core.messaging.callback(message, level);
-    }
+static void _ar_error_callback_dummy(ArStr error) {
+    (void) error;
 }
 
 void arkin_init(const ArkinCoreDesc *desc) {
@@ -45,11 +37,8 @@ void arkin_init(const ArkinCoreDesc *desc) {
         _desc.mutex_pool_capacity = 256;
     }
 
-    if (desc->messaging.callback == 0) {
-        _desc.messaging.callback = _ar_message_callback_dummy;
-    }
-    if (desc->messaging.level == 0) {
-        _desc.messaging.level = AR_MESSAGE_LEVEL_IMPORTANT;
+    if (desc->error.callback == 0) {
+        _desc.error.callback = _ar_error_callback_dummy;
     }
 
     if (desc->arena.default_capacity == 0) {
@@ -68,8 +57,7 @@ void arkin_init(const ArkinCoreDesc *desc) {
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
 
-    _ar_core.messaging.callback = _desc.messaging.callback;
-    _ar_core.messaging.level = _desc.messaging.level;
+    _ar_core.error.callback = _desc.error.callback;
 }
 
 void arkin_terminate(void) {
@@ -208,8 +196,22 @@ void ar_temp_end(ArTemp *temp) {
 
 #define SCRATCH_ARENA_COUNT 2
 
+typedef struct _ArErrAccumulator _ArErrAccumulator;
+struct _ArErrAccumulator {
+    _ArErrAccumulator *next;
+    ArErrAccumType type;
+    ArErr *stack;
+};
+
+typedef struct  _ArErrVars  _ArErrVars;
+struct _ArErrVars {
+    ArArena *arena;
+    _ArErrAccumulator *accum_stack;
+};
+
 struct ArThreadCtx {
     ArArena *scratch_arenas[SCRATCH_ARENA_COUNT];
+    _ArErrVars err;
 };
 
 ARKIN_THREAD ArThreadCtx *_ar_thread_ctx_curr = NULL;
@@ -226,10 +228,14 @@ ArThreadCtx *ar_thread_ctx_create(void) {
         ctx->scratch_arenas[i] = arenas[i];
     }
 
+    ctx->err.arena = ar_arena_create(4 << 20);
+
     return ctx;
 }
 
 void ar_thread_ctx_destroy(ArThreadCtx **ctx) {
+    ar_arena_destroy(&(*ctx)->err.arena);
+
     // Copy arena pointers because ctx lives on the first one so if we free the
     // first and then try to access the second one the program will segfault.
     ArArena *arenas[SCRATCH_ARENA_COUNT] = {0};
@@ -364,13 +370,17 @@ ArStr ar_str_list_join(ArArena *arena, ArStrList list) {
     return ar_str(data, len);
 }
 
-ArStr ar_str_format(ArArena *arena, const char *fmt, ...) {
+ArStr ar_str_pushf(ArArena *arena, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
+    ArStr format = ar_str_pushfv(arena, fmt, args);
+    va_end(args);
+    return format;
+}
 
+ArStr ar_str_pushfv(ArArena *arena, const char *fmt, va_list args) {
     va_list args_len;
     va_copy(args_len, args);
-
     U64 len = vsnprintf(NULL, 0, fmt, args_len);
     va_end(args_len);
     // Temporary length for null-terminator.
@@ -379,7 +389,6 @@ ArStr ar_str_format(ArArena *arena, const char *fmt, ...) {
     U8 *data = ar_arena_push_arr_no_zero(arena, U8, len);
 
     vsnprintf((char *) data, len, fmt, args);
-    va_end(args);
 
     // Remove null-terminator from string.
     len--;
@@ -816,6 +825,109 @@ ArPoolHandle ar_pool_iter_next(const ArPool *pool, ArPoolHandle iter) {
 }
 
 //
+// Error handling
+//
+
+void ar_err_accum_begin(ArErrAccumType type) {
+    if (_ar_thread_ctx_curr == NULL) {
+        return;
+    }
+
+    _ArErrVars *vars = &_ar_thread_ctx_curr->err;
+    _ArErrAccumulator *accum = ar_arena_push_type(vars->arena, _ArErrAccumulator);
+    accum->type = type;
+    ar_sll_stack_push(vars->accum_stack, accum);
+}
+
+ArErr *ar_err_accum_end(ArArena *arena) {
+    if (_ar_thread_ctx_curr == NULL) {
+        return NULL;
+    }
+
+    _ArErrVars *vars = &_ar_thread_ctx_curr->err;
+    _ArErrAccumulator *accum = vars->accum_stack;
+    if (accum == NULL) {
+        return NULL;
+    }
+
+    ArErr *result = NULL;
+
+    switch (accum->type) {
+        case AR_ERR_ACCUM_TYPE_IGNORE:
+            break;
+        case AR_ERR_ACCUM_TYPE_FIRST: {
+            result = ar_arena_push_type(arena, ArErr);
+            result->str = ar_str_push_copy(arena, accum->stack->str);
+        }
+        case AR_ERR_ACCUM_TYPE_STACK: {
+            ArErr *stack = NULL;
+            for (ArErr *node = accum->stack; node != NULL; node = node->next) {
+                ArErr *err = ar_arena_push_type_no_zero(arena, ArErr);
+                err->str = ar_str_push_copy(arena, node->str);
+                ar_sll_stack_push(stack, err);
+            }
+            result = stack;
+        }
+    }
+
+    ar_sll_stack_pop(vars->accum_stack);
+    if (vars->accum_stack == NULL) {
+        ar_arena_reset(vars->arena);
+    }
+
+    return result;
+}
+
+void ar_err_emit(ArStr str) {
+    if (_ar_thread_ctx_curr == NULL) {
+        return;
+    }
+
+    _ArErrVars vars = _ar_thread_ctx_curr->err;
+    if (vars.accum_stack == NULL) {
+        _ar_core.error.callback(str);
+        return;
+    }
+
+    _ArErrAccumulator *accum = vars.accum_stack;
+    if (accum->type == AR_ERR_ACCUM_TYPE_IGNORE) {
+        return;
+    }
+
+    ArErr *err = ar_arena_push_type_no_zero(vars.arena, ArErr);
+    err->str = ar_str_push_copy(vars.arena, str);
+    ar_sll_stack_push(accum->stack, err);
+}
+
+void ar_err_emitf(const char *fmt, ...) {
+    if (_ar_thread_ctx_curr == NULL) {
+        return;
+    }
+
+    _ArErrVars *vars = &_ar_thread_ctx_curr->err;
+
+    va_list args;
+    va_start(args, fmt);
+    ArStr formatted = ar_str_pushfv(vars->arena, fmt, args);
+    va_end(args);
+
+    if (vars->accum_stack == NULL) {
+        _ar_core.error.callback(formatted);
+        ar_arena_pop(vars->arena, formatted.len);
+        return;
+    }
+
+    _ArErrAccumulator *accum = vars->accum_stack;
+    if (accum->type == AR_ERR_ACCUM_TYPE_IGNORE) {
+        return;
+    }
+
+    ArErr *err = ar_arena_push_type_no_zero(vars->arena, ArErr);
+    err->str = formatted;
+    ar_sll_stack_push(accum->stack, err);
+}
+
+//
 // Platform
 //
 
@@ -992,7 +1104,8 @@ ArThread ar_thread_create(ArThreadFunc func, void *args) {
 
     _ArOsThread *thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, handle.handle);
     if (thread == NULL) {
-        _ar_message(ar_str_lit("Thread pool out of threads. Increase 'thread_pool_capacity' when calling arkin_init() to get rid of this warning."), AR_MESSAGE_LEVEL_WARN);
+        ar_err_emit(ar_str_lit("Thread pool out of threads. Increase 'thread_pool_capacity' when calling arkin_init() to get rid of this error."));
+        ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
         return handle;
     }
 
@@ -1009,12 +1122,17 @@ ArThread ar_thread_create(ArThreadFunc func, void *args) {
 ArThread ar_thread_create_no_ctx(ArThreadFunc func, void *args) {
     ar_mutex_lock(_ar_os_state.thread_pool_mutex);
 
-
     ArThread handle = {
         .handle = ar_pool_handle_create(_ar_os_state.thread_pool),
     };
 
     _ArOsThread *thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, handle.handle);
+    if (thread == NULL) {
+        ar_err_emit(ar_str_lit("Thread pool out of threads. Increase 'thread_pool_capacity' when calling arkin_init() to get rid of this error."));
+        ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
+        return handle;
+    }
+
     thread->func = func;
     thread->args = args;
 
@@ -1032,23 +1150,35 @@ void ar_thread_destroy(ArThread thread) {
 }
 
 void ar_thread_join(ArThread thread) {
+    ar_mutex_lock(_ar_os_state.thread_pool_mutex);
+
     _ArOsThread *os_thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, thread.handle);
     if (os_thread == NULL) {
+        ar_err_emit(ar_str_lit("Tried to join an invalid thread."));
+        ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
         return;
     }
 
     pthread_join(os_thread->thread_id, NULL);
 
+    ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
+
     ar_thread_destroy(thread);
 }
 
-void ar_thread_detatch(ArThread thread) {
+void ar_thread_detach(ArThread thread) {
+    ar_mutex_lock(_ar_os_state.thread_pool_mutex);
+
     _ArOsThread *os_thread = ar_pool_handle_to_ptr(_ar_os_state.thread_pool, thread.handle);
     if (os_thread == NULL) {
+        ar_err_emit(ar_str_lit("Tried to detatch an invalid thread."));
+        ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
         return;
     }
 
     pthread_detach(os_thread->thread_id);
+
+    ar_mutex_unlock(_ar_os_state.thread_pool_mutex);
 
     ar_thread_destroy(thread);
 }
@@ -1070,7 +1200,8 @@ ArMutex ar_mutex_create(void) {
 
     _ArOsMutex *mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, handle.handle);
     if (mutex == NULL) {
-        _ar_message(ar_str_lit("Mutex pool out of mutexes. Increase 'mutex_pool_capacity' when calling arkin_init() to get rid of this warning."), AR_MESSAGE_LEVEL_WARN);
+        ar_err_emit(ar_str_lit("Mutex pool out of mutexes. Increase 'mutex_pool_capacity' when calling arkin_init() to get rid of this warning."));
+        ar_mutex_unlock(_ar_os_state.mutex_pool_mutex);
         return handle;
     }
 
@@ -1086,6 +1217,8 @@ void ar_mutex_destroy(ArMutex mutex) {
 
     _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
     if (os_mutex == NULL) {
+        ar_err_emit(ar_str_lit("Tried to destroy an invalid mutex."));
+        ar_mutex_unlock(_ar_os_state.mutex_pool_mutex);
         return;
     }
 
@@ -1099,6 +1232,7 @@ void ar_mutex_destroy(ArMutex mutex) {
 void ar_mutex_lock(ArMutex mutex) {
     _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
     if (os_mutex == NULL) {
+        ar_err_emit(ar_str_lit("Tried to lock an invalid mutex."));
         return;
     }
 
@@ -1108,6 +1242,7 @@ void ar_mutex_lock(ArMutex mutex) {
 void ar_mutex_unlock(ArMutex mutex) {
     _ArOsMutex *os_mutex = ar_pool_handle_to_ptr(_ar_os_state.mutex_pool, mutex.handle);
     if (os_mutex == NULL) {
+        ar_err_emit(ar_str_lit("Tried to unlock an invalid mutex."));
         return;
     }
 
