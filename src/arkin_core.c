@@ -42,8 +42,7 @@ void arkin_init(const ArkinCoreDesc *desc) {
     }
 
     if (desc->arena.default_capacity == 0) {
-        // 4 GiB
-        _desc.arena.default_capacity = 4 * 1llu << 30;
+        _desc.arena.default_capacity = GiB(4);
     }
     if (desc->arena.default_align == 0) {
         _desc.arena.default_align = sizeof(ptrdiff_t);
@@ -54,6 +53,7 @@ void arkin_init(const ArkinCoreDesc *desc) {
 
     _ar_os_init(_desc.thread_pool_capacity, _desc.mutex_pool_capacity);
 
+    // This has to come after OS init because we use the system page size.
     _ar_core.thread_ctx = ar_thread_ctx_create();
     ar_thread_ctx_set(_ar_core.thread_ctx);
 
@@ -228,7 +228,7 @@ ArThreadCtx *ar_thread_ctx_create(void) {
         ctx->scratch_arenas[i] = arenas[i];
     }
 
-    ctx->err.arena = ar_arena_create(4 << 20);
+    ctx->err.arena = ar_arena_create(KiB(4));
 
     return ctx;
 }

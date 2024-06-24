@@ -130,6 +130,14 @@ static const I16 I16_MAX = (I16) ~0 ^ I16_MIN;
 static const I32 I32_MAX = (I32) ~0 ^ I32_MIN;
 static const I64 I64_MAX = (I64) ~0 ^ I64_MIN;
 
+#define KiB(value) (value << 10)
+#define MiB(value) (value << 20)
+#define GiB(value) ((U64) value << 30)
+
+#define KB(value) (value * 1000)
+#define MB(value) (value * 1000000)
+#define GB(value) ((U64) value * 1000000000)
+
 typedef struct ArStr ArStr;
 
 typedef struct ArkinCoreDesc ArkinCoreDesc;
@@ -164,7 +172,7 @@ ARKIN_API void arkin_terminate(void);
 typedef struct ArArena ArArena;
 
 ARKIN_API ArArena *ar_arena_create(U64 capacity);
-// Uses a default capacity of 4 GiB. (4 * 1 << 30).
+// Uses a default capacity of 4 GiB.
 ARKIN_API ArArena *ar_arena_create_default(void);
 ARKIN_API void ar_arena_destroy(ArArena **arena);
 
