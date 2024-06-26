@@ -111,8 +111,9 @@ typedef U32 B32;
 
 #define ar_offsetof(T, M) ((U64) (void *) &((T *) NULL)->M)
 
-#define ar_max(a, b) (a > b ? a : b)
-#define ar_min(a, b) (a < b ? a : b)
+#define ar_max(a, b) ((a) > (b) ? (a) : (b))
+#define ar_min(a, b) ((a) < (b) ? (a) : (b))
+#define ar_clamp(v, min, max) ((v) < (min) ? (min) : (v) > (max) ? (max) : (v))
 #define ar_lerp(a, b, t) ((a) + ((b) - (a)) * (t))
 
 static const U8  U8_MAX  = ~((U8)  0);
