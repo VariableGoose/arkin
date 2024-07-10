@@ -704,6 +704,68 @@ ArArena *ar_hash_map_get_arena(const ArHashMap *map) {
     return map->desc.arena;
 }
 
+struct ArHashMapIter {
+    const ArHashMap *map;
+    U32 index;
+    ArHashMapNode *curr_node;
+};
+
+ArHashMapIter *ar_hash_map_iter_init(ArArena *arena, const ArHashMap *hash_map) {
+    ArHashMapIter *iter = ar_arena_push_type(arena, ArHashMapIter);
+    iter->map = hash_map;
+
+    for (U32 i = 0; i < hash_map->desc.capacity; i++) {
+        ArHashMapBucket bucket = hash_map->buckets[i];
+        if (bucket.first != NULL) {
+            iter->index = i;
+            iter->curr_node = bucket.first;
+            break;
+        }
+    }
+
+    return iter;
+}
+
+void ar_hash_map_iter_next(ArHashMapIter *iter) {
+    if (iter->curr_node->next != NULL) {
+        iter->curr_node = iter->curr_node->next;
+        return;
+    }
+
+    for (U32 i = iter->index + 1; i < iter->map->desc.capacity; i++) {
+        ArHashMapBucket bucket = iter->map->buckets[i];
+        if (bucket.first != NULL) {
+            iter->index = i;
+            iter->curr_node = bucket.first;
+            return;
+        }
+    }
+
+    iter->index = iter->map->desc.capacity;
+    iter->map = NULL;
+    iter->curr_node = NULL;
+}
+
+B8 ar_hash_map_iter_valid(const ArHashMapIter *iter) {
+    return iter->map != NULL && iter->index < iter->map->desc.capacity;
+}
+
+void *ar_hash_map_iter_get_key_ptr(const ArHashMapIter *iter) {
+    if (!ar_hash_map_iter_valid(iter)) {
+        return NULL;
+    }
+
+    return iter->curr_node->key;
+}
+
+void *ar_hash_map_iter_get_value_ptr(const ArHashMapIter *iter) {
+    if (!ar_hash_map_iter_valid(iter)) {
+        return NULL;
+    }
+
+    return iter->curr_node->value;
+}
+
 //
 // Pool allocator
 //

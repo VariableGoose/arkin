@@ -201,6 +201,59 @@ ArTestCaseResult test_hash_map_get_ptr(void) {
     AR_SUCCESS();
 }
 
+#include "arkin_log.h"
+ArTestCaseResult test_hash_map_iter(void) {
+    ArTemp scratch = ar_scratch_get(NULL, 0);
+
+    // Key: ArStr
+    // Value: U32
+    U32 null_value = ~0;
+    ArHashMap *map = ar_hash_map_init((ArHashMapDesc) {
+            .arena = scratch.arena,
+            .capacity = 16,
+
+            .eq_func = str_cmp,
+            .hash_func = str_hash,
+
+            .key_size = sizeof(ArStr),
+            .value_size = sizeof(U32),
+            .null_value = &null_value,
+        });
+
+    // These have to be in this order because that's the way the keys get hashed and
+    // places in memory.
+    ArStr keys[] = {
+        ar_str_lit("foo"),
+        ar_str_lit("qux"),
+        ar_str_lit("bar"),
+    };
+    U32 values[] = {
+        22,
+        32,
+        42,
+    };
+
+    ar_hash_map_insert(map, keys[0], values[0]);
+    ar_hash_map_insert(map, keys[1], values[1]);
+    ar_hash_map_insert(map, keys[2], values[2]);
+
+    U32 i = 0;
+    for (ArHashMapIter *iter = ar_hash_map_iter_init(scratch.arena, map);
+        ar_hash_map_iter_valid(iter);
+        ar_hash_map_iter_next(iter)) {
+        ArStr *key = ar_hash_map_iter_get_key_ptr(iter);
+        U32 *value = ar_hash_map_iter_get_value_ptr(iter);
+
+        AR_ASSERT(ar_str_match(*key, keys[i], AR_STR_MATCH_FLAG_EXACT));
+        AR_ASSERT(*value == values[i]);
+
+        i++;
+    }
+
+    ar_scratch_release(&scratch);
+    AR_SUCCESS();
+}
+
 ArTestResult test_hash_map(ArArena *arena) {
     ArTestState state = ar_test_begin(arena);
 
@@ -210,6 +263,7 @@ ArTestResult test_hash_map(ArArena *arena) {
     AR_RUN_TEST(&state, test_hash_map_set);
     AR_RUN_TEST(&state, test_hash_map_remove);
     AR_RUN_TEST(&state, test_hash_map_get_ptr);
+    AR_RUN_TEST(&state, test_hash_map_iter);
 
     return ar_test_end(state);
 }

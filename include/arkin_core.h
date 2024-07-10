@@ -505,6 +505,14 @@ ARKIN_API ArArena *ar_hash_map_get_arena(const ArHashMap *map);
     _ar_hash_map_get_ptr(map, &_ar_hm_temp_key); \
 })
 
+typedef struct ArHashMapIter ArHashMapIter;
+
+ARKIN_API ArHashMapIter *ar_hash_map_iter_init(ArArena *arena, const ArHashMap *hash_map);
+ARKIN_API void ar_hash_map_iter_next(ArHashMapIter *iter);
+ARKIN_API B8 ar_hash_map_iter_valid(const ArHashMapIter *iter);
+ARKIN_API void *ar_hash_map_iter_get_key_ptr(const ArHashMapIter *iter);
+ARKIN_API void *ar_hash_map_iter_get_value_ptr(const ArHashMapIter *iter);
+
 // Private API.
 // Recommended to not touch this unless you know what's going on underneath
 // the hood.
