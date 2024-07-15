@@ -747,7 +747,7 @@ void ar_hash_map_iter_next(ArHashMapIter *iter) {
 }
 
 B8 ar_hash_map_iter_valid(const ArHashMapIter *iter) {
-    return iter->map != NULL && iter->index < iter->map->desc.capacity;
+    return iter->map != NULL && iter->index < iter->map->desc.capacity && iter->curr_node != NULL;
 }
 
 void *ar_hash_map_iter_get_key_ptr(const ArHashMapIter *iter) {
