@@ -315,13 +315,13 @@ ARKIN_API void ar_thread_ctx_set(ArThreadCtx *ctx);
 
 #define ar_sll_stack_push_nz(f, n, next, zero_check) do { \
     if (!zero_check(f)) { \
-        n->next = f; \
+        (n)->next = (f); \
     } \
-    f = n; \
+    (f) = (n); \
 } while (0)
 #define ar_sll_stack_pop_nz(f, next, zero_check) do { \
     if (!zero_check(f)) { \
-        f = f->next; \
+        (f) = (f)->next; \
     } \
 } while (0)
 
