@@ -202,7 +202,7 @@ struct ArTemp {
 ARKIN_API ArTemp ar_temp_begin(ArArena *arena);
 ARKIN_API void ar_temp_end(ArTemp *temp);
 
-ARKIN_API ArTemp ar_scratch_get(ArArena **conflicting, U32 count);
+ARKIN_API ArTemp ar_scratch_get(ArArena *const *conflicting, U32 count);
 ARKIN_INLINE void ar_scratch_release(ArTemp *scratch) { ar_temp_end(scratch); }
 
 //

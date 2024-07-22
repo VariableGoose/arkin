@@ -254,7 +254,7 @@ void ar_thread_ctx_set(ArThreadCtx *ctx) {
     _ar_thread_ctx_curr = ctx;
 }
 
-static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 count) {
+static ArArena *get_non_conflicting_scratch_arena(ArArena *const *conflicting, U32 count) {
     if (_ar_thread_ctx_curr == NULL) {
         return NULL;
     }
@@ -276,7 +276,7 @@ static ArArena *get_non_conflicting_scratch_arena(ArArena **conflicting, U32 cou
     return NULL;
 }
 
-ArTemp ar_scratch_get(ArArena **conflicting, U32 count) {
+ArTemp ar_scratch_get(ArArena *const *conflicting, U32 count) {
     ArArena *scratch = get_non_conflicting_scratch_arena(conflicting, count);
     if (scratch == NULL) {
         return (ArTemp) {0};
