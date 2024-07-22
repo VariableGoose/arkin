@@ -9,7 +9,7 @@
 _ArkinLogState _ar_state = {0};
 
 static void ar_log_stdout(ArLogEvent event) {
-    static const char *level_string[AL_LOG_LEVEL_COUNT] = {
+    static const char *level_string[AR_LOG_LEVEL_COUNT] = {
         "FATAL",
         "ERROR",
         "WARN ",
@@ -18,7 +18,7 @@ static void ar_log_stdout(ArLogEvent event) {
         "TRACE",
     };
 
-    static const char *level_string_color[AL_LOG_LEVEL_COUNT] = {
+    static const char *level_string_color[AR_LOG_LEVEL_COUNT] = {
         "\e[0;0m\e[1;101m",
         "\e[1;91m",
         "\e[0;93m",
