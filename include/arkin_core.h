@@ -76,6 +76,8 @@ typedef unsigned int       U32;
 // Unsigned 64-bit integer.
 typedef unsigned long long U64;
 
+typedef unsigned long Usize;
+
 // Signed 8-bit integer.
 typedef signed char      I8;
 // Signed 16-bit integer.
@@ -84,6 +86,8 @@ typedef signed short     I16;
 typedef signed int       I32;
 // Signed 64-bit integer.
 typedef signed long long I64;
+
+typedef signed long Isize;
 
 // 32-bit floating point number.
 typedef float  F32;
